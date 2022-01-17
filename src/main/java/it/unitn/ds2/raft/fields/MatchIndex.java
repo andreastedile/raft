@@ -33,7 +33,8 @@ public class MatchIndex implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("matchIndex[" + server.path().name() + "] ← " + matchIndex.get(server));
             var event = new MatchIndexIncrement(ctx.getSelf(), ctx.getSystem().uptime(), server, matchIndex.get(server));
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 

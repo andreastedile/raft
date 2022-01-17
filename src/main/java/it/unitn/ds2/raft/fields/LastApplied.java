@@ -30,7 +30,8 @@ public class LastApplied implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("lastApplied ← " + lastApplied);
             var event = new LastAppliedSet(ctx.getSelf(), ctx.getSystem().uptime(), lastApplied);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
@@ -39,7 +40,8 @@ public class LastApplied implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("lastApplied ← " + lastApplied);
             var event = new LastAppliedIncrement(ctx.getSelf(), ctx.getSystem().uptime(), lastApplied);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 

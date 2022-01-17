@@ -23,7 +23,8 @@ public class VotedFor implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("votedFor ← " + server.path().name());
             var event = new VotedForSet(ctx.getSelf(), ctx.getSystem().uptime(), server);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 

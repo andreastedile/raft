@@ -28,7 +28,8 @@ public class Votes implements ContextAware {
                 ctx.getLog().debug("votes[" + server.path().name() + "] ← denied");
             }
             var event = new VotesAddVote(ctx.getSelf(), ctx.getSystem().uptime(), server, voteGranted);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 

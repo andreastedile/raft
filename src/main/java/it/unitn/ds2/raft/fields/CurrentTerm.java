@@ -30,7 +30,8 @@ public class CurrentTerm implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("currentTerm ← " + currentTerm);
             var event = new CurrentTermSet(ctx.getSelf(), ctx.getSystem().uptime(), currentTerm);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
@@ -39,7 +40,8 @@ public class CurrentTerm implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("currentTerm ← " + currentTerm);
             var event = new CurrentTermIncrement(ctx.getSelf(), ctx.getSystem().uptime(), currentTerm);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 

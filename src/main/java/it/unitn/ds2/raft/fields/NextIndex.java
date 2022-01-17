@@ -35,7 +35,8 @@ public class NextIndex implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("nextIndex[" + server.path().name() + "] ← " + nextIndex.get(server));
             var event = new NextIndexIncrement(ctx.getSelf(), ctx.getSystem().uptime(), server, nextIndex.get(server));
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
@@ -44,7 +45,8 @@ public class NextIndex implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("nextIndex[" + server.path().name() + "] ← " + nextIndex.get(server));
             var event = new NextIndexDecrement(ctx.getSelf(), ctx.getSystem().uptime(), server, nextIndex.get(server));
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 

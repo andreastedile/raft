@@ -39,7 +39,8 @@ public class Log implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("log[" + lastLogIndex() + "] ← " + entry);
             var event = new LogAppend(ctx.getSelf(), ctx.getSystem().uptime(), entry, lastLogIndex());
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
@@ -76,7 +77,8 @@ public class Log implements ContextAware {
                     if (ctx != null) {
                         ctx.getLog().debug("lastLogIndex ← " + lastLogIndex());
                         var event = new LogRemove(ctx.getSelf(), ctx.getSystem().uptime(), removed, lastLogIndex() + 1);
-                        new EventStream.Publish<>(event);
+                        var publish = new EventStream.Publish<>(event);
+                        ctx.getSystem().eventStream().tell(publish);
                     }
                 }
             }
@@ -86,7 +88,8 @@ public class Log implements ContextAware {
                 if (ctx != null) {
                     ctx.getLog().debug("log[" + lastLogIndex() + "] ← " + log.get(i));
                     var event = new LogAppend(ctx.getSelf(), ctx.getSystem().uptime(), log.get(i), lastLogIndex());
-                    new EventStream.Publish<>(event);
+                    var publish = new EventStream.Publish<>(event);
+                    ctx.getSystem().eventStream().tell(publish);
                 }
 
                 i++;

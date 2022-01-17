@@ -31,7 +31,8 @@ public class CommitIndex implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("commitIndex ← " + commitIndex);
             var event = new CommitIndexSet(ctx.getSelf(), ctx.getSystem().uptime(), commitIndex);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
@@ -40,7 +41,8 @@ public class CommitIndex implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("commitIndex ← " + commitIndex);
             var event = new CommitIndexIncrement(ctx.getSelf(), ctx.getSystem().uptime(), commitIndex);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
@@ -49,7 +51,8 @@ public class CommitIndex implements ContextAware {
         if (ctx != null) {
             ctx.getLog().debug("commitIndex ← " + commitIndex);
             var event = new CommitIndexDecrement(ctx.getSelf(), ctx.getSystem().uptime(), commitIndex);
-            new EventStream.Publish<>(event);
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
         }
     }
 
