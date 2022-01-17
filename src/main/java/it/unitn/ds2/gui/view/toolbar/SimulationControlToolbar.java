@@ -38,22 +38,22 @@ public class SimulationControlToolbar extends AbstractToolbar {
     }
 
     private void handleAdd(ActionEvent event) {
-        // applicationContext.commandBus.emit(new AddServer());
-        new EventStream.Publish<>(new AddServer());
+        var command = new AddServer();
+        applicationContext.commandBus.emit(command);
         start.setDisable(false);
     }
 
     private void handleStart(ActionEvent event) {
-        // applicationContext.commandBus.emit(new StartSimulation());
-        new EventStream.Publish<>(new StartSimulation());
+        var command = new StartSimulation();
+        applicationContext.commandBus.emit(command);
         add.setDisable(true);
         start.setDisable(true);
         stop.setDisable(false);
     }
 
     private void handleStop(ActionEvent event) {
-//        applicationContext.commandBus.emit(new StopSimulation());
-        new EventStream.Publish<>(new StopSimulation());
+        var command = new StopSimulation();
+        new EventStream.Publish<>(command);
         add.setDisable(true);
         stop.setDisable(true);
         start.setDisable(false);

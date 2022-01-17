@@ -5,6 +5,7 @@ import it.unitn.ds2.gui.components.ApplicationContext;
 import it.unitn.ds2.gui.model.LocalLogModel;
 import it.unitn.ds2.gui.view.AbstractTableView;
 import it.unitn.ds2.raft.Raft;
+import it.unitn.ds2.raft.events.Spawn;
 import it.unitn.ds2.raft.events.log.LogAppend;
 import it.unitn.ds2.raft.events.log.LogRemove;
 import it.unitn.ds2.raft.fields.LogEntry;
@@ -20,6 +21,7 @@ public class LocalLogView extends AbstractTableView<LocalLogModel> {
         localLog.setCellFactory(param -> new LocalLogTableCell());
         getColumns().add(localLog);
 
+        applicationContext.eventBus.listenFor(Spawn.class, this::onSpawn);
         applicationContext.eventBus.listenFor(LogAppend.class, this::onLogAppendEvent);
         applicationContext.eventBus.listenFor(LogRemove.class, this::onLogRemoveEvent);
     }
@@ -27,6 +29,10 @@ public class LocalLogView extends AbstractTableView<LocalLogModel> {
     @Override
     protected LocalLogModel createModel(ActorRef<Raft> server) {
         return new LocalLogModel(server);
+    }
+
+    private void onSpawn(Spawn event) {
+        createModel(event.publisher);
     }
 
     private void onLogAppendEvent(LogAppend event) {

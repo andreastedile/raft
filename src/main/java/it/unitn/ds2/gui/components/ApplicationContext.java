@@ -7,10 +7,10 @@ public class ApplicationContext {
     public final EventBus eventBus;
 
     public ApplicationContext() {
-        ActorSystem.create(SimulationController.create(this), "raft-cluster");
-
         commandBus = new CommandBus();
         eventBus = new EventBus();
+
+        ActorSystem.create(SimulationController.create(this), "raft-cluster");
     }
 
     /**
