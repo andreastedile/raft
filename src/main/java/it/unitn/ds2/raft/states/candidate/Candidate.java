@@ -25,7 +25,6 @@ public final class Candidate extends Server {
     }
 
     public static Behavior<Raft> beginElection(ActorContext<Raft> ctx, Servers servers, CandidateState state) {
-        // fixme
         Votes votes = new Votes(servers.getAll());
         votes.setCtx(ctx);
         SeqNum seqNum = new SeqNum(servers.getAll());
@@ -49,7 +48,7 @@ public final class Candidate extends Server {
             return Behaviors.intercept(() -> checkSeqNum(timers, seqNum),
                     Behaviors.intercept(() -> checkTerm(timers, servers, state),
                             Behaviors.receive(Raft.class)
-                                    .onMessage(Vote.class, msg -> onVote(ctx, timers, servers, seqNum, state, msg))
+                                    .onMessage(Vote.class, msg -> onVote(ctx, timers, servers, seqNum, votes, state, msg))
                                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
                                     .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, timers, servers, state))
                                     .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
@@ -89,17 +88,19 @@ public final class Candidate extends Server {
         return beginElection(ctx, servers, state);
     }
 
-    private static Behavior<Raft> onVote(ActorContext<Raft> ctx, TimerScheduler<Raft> timers, Servers servers, SeqNum seqNum, CandidateState state, Vote msg) {
+    private static Behavior<Raft> onVote(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                         Servers servers, SeqNum seqNum, Votes votes,
+                                         CandidateState state, Vote msg) {
         ctx.getLog().debug("Received " + msg);
 
-        state.votes.addVote(msg.sender, msg.voteGranted);
+        votes.addVote(msg.sender, msg.voteGranted);
         timers.cancel(msg.sender);
 
-        if (state.votes.nGranted() == majority(servers.size() + 1)) {
+        if (votes.nGranted() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election won!");
             servers.getAll().forEach(timers::cancel);
             return Leader.elected(ctx, servers, seqNum, LeaderState.fromState(servers, state));
-        } else if (state.votes.nDenied() == majority(servers.size() + 1)) {
+        } else if (votes.nDenied() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election lost");
             servers.getAll().forEach(timers::cancel);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));

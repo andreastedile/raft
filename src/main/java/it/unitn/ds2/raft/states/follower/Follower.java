@@ -77,7 +77,7 @@ public final class Follower extends Server {
 
     private static Behavior<Raft> onElectionTimeout(ActorContext<Raft> ctx, Servers servers, FollowerState state) {
         ctx.getLog().debug("Election timeout!");
-        return Candidate.beginElection(ctx, servers, CandidateState.fromState(servers, state));
+        return Candidate.beginElection(ctx, servers, CandidateState.fromState(state));
     }
 
     private static Behavior<Raft> onAppendEntries(ActorContext<Raft> ctx, TimerScheduler<Raft> timers, FollowerState state, AppendEntries msg) {
