@@ -39,7 +39,6 @@ public final class Candidate extends Server {
         ctx.getLog().debug("Begin election");
         state.currentTerm.increment();
         state.votedFor.set(ctx.getSelf());
-        votes.clear();
         votes.addVote(ctx.getSelf(), true);
 
         if (votes.nGranted() == majority(servers.size() + 1)) {

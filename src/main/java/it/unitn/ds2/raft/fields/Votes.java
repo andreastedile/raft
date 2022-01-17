@@ -33,10 +33,6 @@ public class Votes implements ContextAware {
         }
     }
 
-    public void clear() {
-        votes.clear();
-    }
-
     public int nGranted() {
         return (int) votes.values().stream()
                 .filter(Boolean::booleanValue)
