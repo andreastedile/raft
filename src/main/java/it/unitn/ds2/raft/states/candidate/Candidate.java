@@ -2,10 +2,12 @@ package it.unitn.ds2.raft.states.candidate;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
+import akka.actor.typed.eventstream.EventStream;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
+import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.SeqNum;
 import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.fields.Votes;
@@ -29,6 +31,10 @@ public final class Candidate extends Server {
         votes.setCtx(ctx);
         SeqNum seqNum = new SeqNum(servers.getAll());
         seqNum.setCtx(ctx);
+
+        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CANDIDATE);
+        var publish = new EventStream.Publish<>(event);
+        ctx.getSystem().eventStream().tell(publish);
 
         ctx.getLog().debug("Begin election");
         state.currentTerm.increment();

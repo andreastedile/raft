@@ -33,7 +33,8 @@ public final class Follower extends Server {
                     ctx.setLoggerName(ctx.getSystem().name());
 
                     var spawn = new Spawn(ctx.getSelf(), ctx.getSystem().uptime());
-                    new EventStream.Publish<>(spawn);
+                    var publish = new EventStream.Publish<>(spawn);
+                    ctx.getSystem().eventStream().tell(publish);
 
                     return Behaviors.receive(Raft.class)
                             .onMessage(Join.class, msg -> onJoin(ctx, servers, msg))

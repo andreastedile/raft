@@ -2,11 +2,13 @@ package it.unitn.ds2.raft.states.leader;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
+import akka.actor.typed.eventstream.EventStream;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.StashBuffer;
 import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
+import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.LogEntry;
 import it.unitn.ds2.raft.fields.SeqNum;
 import it.unitn.ds2.raft.fields.Servers;
@@ -25,6 +27,10 @@ public final class Leader extends Server {
     public static Behavior<Raft> elected(ActorContext<Raft> ctx, Servers servers, SeqNum seqNum, LeaderState state) {
         state.nextIndex.setCtx(ctx);
         state.matchIndex.setCtx(ctx);
+
+        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.LEADER);
+        var publish = new EventStream.Publish<>(event);
+        ctx.getSystem().eventStream().tell(publish);
 
         return Behaviors.withTimers(timers ->
                 Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
