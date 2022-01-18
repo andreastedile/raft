@@ -15,6 +15,7 @@ import it.unitn.ds2.raft.simulation.Join;
 import it.unitn.ds2.raft.simulation.Start;
 import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.follower.Follower;
+import javafx.application.Platform;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +58,7 @@ public class SimulationController extends AbstractBehavior<Raft> {
     }
 
     private Behavior<Raft> onEvent(RaftEvent event) {
-        applicationContext.eventBus.emit(event);
+        Platform.runLater(() -> applicationContext.eventBus.emit(event));
         return this;
     }
 
