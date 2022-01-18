@@ -1,16 +1,20 @@
 package it.unitn.ds2.gui.components;
 
 import akka.actor.typed.ActorSystem;
+import akka.actor.typed.Behavior;
+import it.unitn.ds2.raft.Raft;
 
 public class ApplicationContext {
     public final CommandBus commandBus;
     public final EventBus eventBus;
 
     public ApplicationContext() {
-        commandBus = new CommandBus();
+        Behavior<Raft> raftBehavior = SimulationController.create(this);
+        ActorSystem<Raft> raftActorSystem = ActorSystem.create(raftBehavior, "raft-cluster");
+
+        commandBus = new CommandBus(raftActorSystem);
         eventBus = new EventBus();
 
-        ActorSystem.create(SimulationController.create(this), "raft-cluster");
     }
 
     /**
