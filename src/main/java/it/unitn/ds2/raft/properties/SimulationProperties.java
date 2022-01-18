@@ -13,10 +13,12 @@ public class SimulationProperties {
     public long heartbeatMs;
     public long rpcTimeoutMs;
 
+    private static final String FILENAME = "/simulation.properties";
+
     private SimulationProperties() {
-        try (InputStream file = SimulationProperties.class.getResourceAsStream("/it.unitn.ds2.raft.simulation.it.unitn.ds2.raft.properties")) {
+        try (InputStream file = SimulationProperties.class.getResourceAsStream(FILENAME)) {
             if (file == null) {
-                throw new FileNotFoundException("it.unitn.ds2.raft.simulation.it.unitn.ds2.raft.properties not found");
+                throw new FileNotFoundException("Unable to load " + FILENAME + ", not found.");
             }
 
             var props = new java.util.Properties();
@@ -27,7 +29,9 @@ public class SimulationProperties {
             maxElectionTimeoutMs = Long.parseLong(props.getProperty("maxElectionTimeoutMs")) * timeScale;
             heartbeatMs = Long.parseLong(props.getProperty("heartbeatMs")) * timeScale;
             rpcTimeoutMs = Long.parseLong(props.getProperty("rpcTimeoutMs")) * timeScale;
-        } catch (IOException ignored) {
+        } catch (IOException ex) {
+            System.err.println(ex.getMessage());
+            throw new RuntimeException(FILENAME + " not found.");
         }
     }
 
