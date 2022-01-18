@@ -54,6 +54,12 @@ public final class Follower extends Server {
         ctx.getLog().info("Starting");
 
         var state = new FollowerState();
+        state.currentTerm.setCtx(ctx);
+        state.votedFor.setCtx(ctx);
+        state.log.setCtx(ctx);
+        state.commitIndex.setCtx(ctx);
+        state.lastApplied.setCtx(ctx);
+
         return waitForAppendEntries(ctx, servers, state);
     }
 
