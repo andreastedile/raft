@@ -2,6 +2,7 @@ package it.unitn.ds2.gui.components;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
+import akka.actor.typed.eventstream.EventStream;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
@@ -9,7 +10,6 @@ import akka.actor.typed.javadsl.Receive;
 import it.unitn.ds2.gui.commands.*;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.RaftEvent;
-import it.unitn.ds2.raft.events.Spawn;
 import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Join;
 import it.unitn.ds2.raft.simulation.Start;
@@ -32,6 +32,9 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
         applicationContext.commandBus.listenFor(AddServer.class, this::onAddServer);
         applicationContext.commandBus.listenFor(StartSimulation.class, this::onStartSimulation);
+
+        var subscribe = new EventStream.Subscribe<>(RaftEvent.class, actorContext.getSelf().narrow());
+        actorContext.getSystem().eventStream().tell(subscribe);
     }
 
     public static Behavior<Raft> create(ApplicationContext applicationContext) {
@@ -62,9 +65,6 @@ public class SimulationController extends AbstractBehavior<Raft> {
         getContext().getLog().info("Add server command");
         var server = getContext().spawn(Follower.create(), "server" + (servers.size() + 1));
         servers.add(server);
-
-        var event = new Spawn(server, getContext().getSystem().uptime());
-        applicationContext.eventBus.emit(event);
 
         var join = new Join(server);
         servers.forEach(other -> other.tell(join));
