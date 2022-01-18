@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class SimulationProperties {
+    private static final String FILENAME = "/simulation.properties";
     private static SimulationProperties instance;
 
     public long timeScale;
@@ -13,7 +14,6 @@ public class SimulationProperties {
     public long heartbeatMs;
     public long rpcTimeoutMs;
 
-    private static final String FILENAME = "/simulation.properties";
 
     private SimulationProperties() {
         try (InputStream file = SimulationProperties.class.getResourceAsStream(FILENAME)) {
@@ -30,8 +30,7 @@ public class SimulationProperties {
             heartbeatMs = Long.parseLong(props.getProperty("heartbeatMs")) * timeScale;
             rpcTimeoutMs = Long.parseLong(props.getProperty("rpcTimeoutMs")) * timeScale;
         } catch (IOException ex) {
-            System.err.println(ex.getMessage());
-            throw new RuntimeException(FILENAME + " not found.");
+            throw new RuntimeException(ex);
         }
     }
 
