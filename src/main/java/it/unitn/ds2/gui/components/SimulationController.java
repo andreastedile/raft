@@ -64,11 +64,12 @@ public class SimulationController extends AbstractBehavior<Raft> {
     private Behavior<Raft> onAddServer(AddServer command) {
         getContext().getLog().info("Add server command");
         var server = getContext().spawn(Follower.create(), "server" + (servers.size() + 1));
-        servers.add(server);
 
         var join = new Join(server);
         servers.forEach(other -> other.tell(join));
         servers.stream().map(Join::new).forEach(server::tell);
+
+        servers.add(server);
         return this;
     }
 
