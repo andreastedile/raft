@@ -33,10 +33,10 @@ public class ServerView extends AbstractTableView<ServerModel> {
 
         // The code below implementing the button is taken from https://stackoverflow.com/a/32284751
         TableColumn<ServerModel, ServerModel> changeState = new TableColumn<>("Change state");
+        changeState.setCellFactory(param -> new StateChangeTableCell<>(applicationContext));
         changeState.setCellValueFactory(param -> new ReadOnlyObjectWrapper<>(param.getValue()));
         getColumns().add(changeState);
 
-        applicationContext.eventBus.listenFor(Spawn.class, this::onSpawn);
         applicationContext.eventBus.listenFor(StateChange.class, this::onStateChange);
         applicationContext.eventBus.listenFor(CurrentTermIncrement.class, this::onCurrentTermIncrement);
         applicationContext.eventBus.listenFor(CurrentTermSet.class, this::onCurrentTermSet);
@@ -46,10 +46,6 @@ public class ServerView extends AbstractTableView<ServerModel> {
     @Override
     protected ServerModel createModel(ActorRef<Raft> server) {
         return new ServerModel(server);
-    }
-
-    private void onSpawn(Spawn event) {
-        createModel(event.publisher);
     }
 
     private void onStateChange(StateChange event) {

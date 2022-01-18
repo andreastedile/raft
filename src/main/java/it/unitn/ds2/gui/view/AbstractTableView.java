@@ -4,6 +4,7 @@ import akka.actor.typed.ActorRef;
 import it.unitn.ds2.gui.components.ApplicationContext;
 import it.unitn.ds2.gui.model.AbstractModel;
 import it.unitn.ds2.raft.Raft;
+import it.unitn.ds2.raft.events.Spawn;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.Label;
@@ -23,7 +24,7 @@ public abstract class AbstractTableView<T extends AbstractModel> extends TableVi
         name.setCellValueFactory(param -> param.getValue().serverProperty());
         getColumns().add(name);
 
-//        applicationContext.getEventBus().listenFor(ServerSpawnEvent.class, this::onServerSpawnEvent);
+        applicationContext.eventBus.listenFor(Spawn.class, this::onSpawn);
 
         setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
@@ -40,7 +41,7 @@ public abstract class AbstractTableView<T extends AbstractModel> extends TableVi
 
     protected abstract T createModel(ActorRef<Raft> server);
 
-//    private void onServerSpawnEvent(ServerSpawnEvent event) {
-//        models.add(createModel(event.publisher));
-//    }
+    private void onSpawn(Spawn event) {
+        getItems().add(createModel(event.publisher));
+    }
 }
