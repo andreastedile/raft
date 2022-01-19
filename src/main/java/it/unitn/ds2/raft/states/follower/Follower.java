@@ -126,7 +126,7 @@ public final class Follower extends Server {
         // 3. If an existing entry conflicts with a new one (same index but different terms),
         // delete the existing entry and all that follow it
         // 4. Append any new entries not already in the log
-        state.log.storeEntries(msg.prevLogIndex, msg.entries);
+        state.log.storeEntries(msg.prevLogIndex + 1, msg.entries);
 
         // 5. If leaderCommit > commitIndex, set
         // commitIndex = min(leaderCommit, index of last new entry)
