@@ -7,6 +7,7 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.Spawn;
+import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.rpc.AppendEntries;
 import it.unitn.ds2.raft.rpc.AppendEntriesResult;
@@ -64,6 +65,11 @@ public final class Follower extends Server {
     }
 
     public static Behavior<Raft> waitForAppendEntries(ActorContext<Raft> ctx, Servers servers, FollowerState state) {
+        // Inform everyone that I'm a follower again
+        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.FOLLOWER);
+        var publish = new EventStream.Publish<>(event);
+        ctx.getSystem().eventStream().tell(publish);
+
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
 
