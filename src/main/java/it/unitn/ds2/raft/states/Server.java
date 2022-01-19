@@ -1,6 +1,5 @@
 package it.unitn.ds2.raft.states;
 
-import akka.actor.Actor;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.BehaviorInterceptor;
 import akka.actor.typed.TypedActorContext;
@@ -92,11 +91,11 @@ public class Server {
         return new BehaviorInterceptor<>(Raft.class) {
             @Override
             public Behavior<Raft> aroundReceive(TypedActorContext<Raft> ctx, Raft msg, ReceiveTarget<Raft> target) {
-                ActorContext<Raft> convertedCtx = ctx.asJava();
-                if (msg instanceof Crash) {
-                    return crash(convertedCtx, servers, state, timers, (Crash) msg);
-                } else if (msg instanceof Stop) {
-                    return stop(convertedCtx, servers, state, (Stop) msg);
+                ActorContext<Raft> convertedCtx = (ActorContext<Raft>) ctx;
+                if (msg instanceof Crash crashMessage) {
+                    return crash(convertedCtx, servers, state, timers, crashMessage);
+                } else if (msg instanceof Stop stopMessage) {
+                    return stop(convertedCtx, servers, state, stopMessage);
                 } else {
                     return target.apply(ctx, msg);
                 }
@@ -116,10 +115,11 @@ public class Server {
                 .build();
     }
 
-    protected static Behavior<Raft> crash(ActorContext<Raft> ctx, Servers servers, State state, TimerScheduler<Raft> timers, Crash msg) {
+    protected static Behavior<Raft> crash(ActorContext<Raft> ctx, Servers servers, State state,
+                                          TimerScheduler<Raft> timers, Crash msg) {
         ctx.getLog().debug("Crashing...");
 
-        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.OFFLINE);
+        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CRASHED);
         var publish = new EventStream.Publish<>(event);
         ctx.getSystem().eventStream().tell(publish);
 

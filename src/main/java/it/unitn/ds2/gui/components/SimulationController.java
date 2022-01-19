@@ -26,7 +26,6 @@ import java.util.Random;
 public class SimulationController extends AbstractBehavior<Raft> {
     private final ApplicationContext applicationContext;
     private final List<ActorRef<Raft>> servers;
-    protected final static SimulationProperties properties = SimulationProperties.getInstance();
 
     public SimulationController(ActorContext<Raft> actorContext, ApplicationContext applicationContext) {
         super(actorContext);
@@ -36,7 +35,12 @@ public class SimulationController extends AbstractBehavior<Raft> {
         servers = new ArrayList<>();
 
         applicationContext.commandBus.listenFor(AddServer.class, this::onAddServer);
+        applicationContext.commandBus.listenFor(CrashServer.class, this::onCrashServer);
         applicationContext.commandBus.listenFor(StartSimulation.class, this::onStartSimulation);
+        applicationContext.commandBus.listenFor(StopSimulation.class, this::onStopSimulation);
+        applicationContext.commandBus.listenFor(SendCommand.class, this::onSendStateMachineCommand);
+        applicationContext.commandBus.listenFor(RestartServer.class, this::onRestartServerCommand);
+
 
         var subscribe = new EventStream.Subscribe<>(RaftEvent.class, actorContext.getSelf().narrow());
         actorContext.getSystem().eventStream().tell(subscribe);
@@ -80,21 +84,20 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
     private Behavior<Raft> onCrashServer(CrashServer command) {
         getContext().getLog().info("Crash server command");
-        Duration crashDuration = Duration.ofSeconds(new Random().nextLong(properties.maxCrashDuration));
-        command.server.tell(new Crash(crashDuration));
+        command.server.tell(new Crash(command.duration));
 
         return this;
     }
 
     private Behavior<Raft> onStartSimulation(StartSimulation command) {
-        getContext().getLog().info("Start it.unitn.ds2.raft.simulation command");
+        getContext().getLog().info("Start simulation command");
         var start = new Start();
         servers.forEach(server -> server.tell(start));
         return this;
     }
 
     private Behavior<Raft> onStopSimulation(StopSimulation command) {
-        getContext().getLog().info("Stop it.unitn.ds2.raft.simulation command");
+        getContext().getLog().info("Stop simulation command");
         var stop = new Stop();
         servers.forEach(server -> server.tell(stop));
         return this;
