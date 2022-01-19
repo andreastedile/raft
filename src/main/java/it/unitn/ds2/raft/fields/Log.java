@@ -31,7 +31,7 @@ public class Log implements ContextAware {
     }
 
     public List<LogEntry> getFrom(int index) {
-        return log.subList(index - 1, log.size() - 1);
+        return log.subList(index - 1, log.size());
     }
 
     public void append(LogEntry entry) {
