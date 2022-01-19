@@ -50,14 +50,17 @@ public final class Candidate extends Server {
             startElectionTimer(ctx, timers);
             servers.getAll().forEach(server -> sendRequestVote(ctx, timers, seqNum, server, state));
 
-            return Behaviors.intercept(() -> checkSeqNum(timers, seqNum),
-                    Behaviors.intercept(() -> checkTerm(timers, servers, state),
-                            Behaviors.receive(Raft.class)
-                                    .onMessage(Vote.class, msg -> onVote(ctx, timers, servers, seqNum, votes, state, msg))
-                                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
-                                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, timers, servers, state))
-                                    .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
-                                    .build())
+            return Behaviors.intercept(() -> interceptCrashes(ctx, servers, state, timers),
+                    Behaviors.intercept(() -> checkSeqNum(timers, seqNum),
+                            Behaviors.intercept(() -> checkTerm(timers, servers, state),
+                                    Behaviors.receive(Raft.class)
+                                            .onMessage(Vote.class, msg -> onVote(ctx, timers, servers, seqNum, votes, state, msg))
+                                            .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
+                                            .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, timers, servers, state))
+                                            .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
+                                            .build()
+                            )
+                    )
             );
         });
     }

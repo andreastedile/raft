@@ -46,12 +46,14 @@ public final class Follower extends Server {
     }
 
     public static Behavior<Raft> onJoin(ActorContext<Raft> ctx, Servers servers, Join msg) {
+        //if (servers.getAll().contains(msg.server)) {
+        //}
         ctx.getLog().info(msg.server + " joined the Raft cluster");
         servers.add(msg.server);
         return Behaviors.same();
     }
 
-    private static Behavior<Raft> onStart(ActorContext<Raft> ctx, Servers servers) {
+    public static Behavior<Raft> onStart(ActorContext<Raft> ctx, Servers servers) {
         ctx.getLog().info("Starting");
 
         var state = new FollowerState();
@@ -73,12 +75,15 @@ public final class Follower extends Server {
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
 
-            return Behaviors.intercept(() -> checkTerm(timers, servers, state),
-                    Behaviors.receive(Raft.class)
-                            .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
-                            .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
-                            .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
-                            .build());
+            return Behaviors.intercept(() -> interceptCrashes(ctx, servers, state, timers),
+                    Behaviors.intercept(() -> checkTerm(timers, servers, state),
+                            Behaviors.receive(Raft.class)
+                                    .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
+                                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
+                                    .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
+                                    .build()
+                    )
+            );
         });
     }
 
