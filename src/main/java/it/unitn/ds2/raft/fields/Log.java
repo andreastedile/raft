@@ -46,13 +46,15 @@ public class Log implements ContextAware {
 
     public void storeEntries(int indexFrom, List<LogEntry> entries) {
         if (log.isEmpty() && indexFrom > 1) {
-            throw new IllegalArgumentException("Cannot append log entries to an empty log from an index greater than 1");
+            throw new IllegalArgumentException("Cannot append log entries to an empty log " +
+                    "from an index greater than 1 (indexFrom=" + indexFrom + ")");
         }
         if (indexFrom < 1) {
-            throw new IllegalArgumentException("indexFrom is smaller than 1");
+            throw new IllegalArgumentException("indexFrom is smaller than 1 (" + indexFrom + ")");
         }
         if (log.size() > 0 && indexFrom > lastLogIndex() + 1) {
-            throw new IllegalArgumentException("Cannot append log entries to a log from an index greater than the index of the last entry in the log");
+            throw new IllegalArgumentException("Cannot append log entries to a log from an index " +
+                    "greater than the index of the last entry in the log (" + indexFrom + ")");
         }
 
         int i = indexFrom - 1; // points to the entry in the local log corresponding to indexFrom (if any)
