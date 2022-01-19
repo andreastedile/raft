@@ -20,8 +20,17 @@ public class VotedFor implements ContextAware {
 
     public void set(ActorRef<Raft> server) {
         this.votedFor = server;
+        String voteTarget;
+
         if (ctx != null) {
-            ctx.getLog().debug("votedFor ← " + server.path().name());
+
+            try {
+                voteTarget = server.path().name();
+            } catch (NullPointerException e) {
+                voteTarget = " - ";
+            }
+
+            ctx.getLog().debug("votedFor ← " + voteTarget);
             var event = new VotedForSet(ctx.getSelf(), ctx.getSystem().uptime(), server);
             var publish = new EventStream.Publish<>(event);
             ctx.getSystem().eventStream().tell(publish);
