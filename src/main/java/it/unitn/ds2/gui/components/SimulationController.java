@@ -10,6 +10,7 @@ import akka.actor.typed.javadsl.Receive;
 import it.unitn.ds2.gui.commands.*;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.RaftEvent;
+import it.unitn.ds2.raft.properties.SimulationProperties;
 import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Join;
 import it.unitn.ds2.raft.simulation.Start;
@@ -17,12 +18,15 @@ import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.follower.Follower;
 import javafx.application.Platform;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class SimulationController extends AbstractBehavior<Raft> {
     private final ApplicationContext applicationContext;
     private final List<ActorRef<Raft>> servers;
+    protected final static SimulationProperties properties = SimulationProperties.getInstance();
 
     public SimulationController(ActorContext<Raft> actorContext, ApplicationContext applicationContext) {
         super(actorContext);
@@ -76,7 +80,9 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
     private Behavior<Raft> onCrashServer(CrashServer command) {
         getContext().getLog().info("Crash server command");
-        command.server.tell(new Crash());
+        Duration crashDuration = Duration.ofSeconds(new Random().nextLong(properties.maxCrashDuration));
+        command.server.tell(new Crash(crashDuration));
+
         return this;
     }
 

@@ -13,6 +13,7 @@ public class SimulationProperties {
     public long maxElectionTimeoutMs;
     public long heartbeatMs;
     public long rpcTimeoutMs;
+    public long maxCrashDuration;
 
 
     private SimulationProperties() {
@@ -29,6 +30,7 @@ public class SimulationProperties {
             maxElectionTimeoutMs = Long.parseLong(props.getProperty("maxElectionTimeoutMs")) * timeScale;
             heartbeatMs = Long.parseLong(props.getProperty("heartbeatMs")) * timeScale;
             rpcTimeoutMs = Long.parseLong(props.getProperty("rpcTimeoutMs")) * timeScale;
+            maxCrashDuration = Long.parseLong(props.getProperty("maxCrashDuration")) * timeScale;
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
