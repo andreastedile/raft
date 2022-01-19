@@ -53,7 +53,7 @@ public class SimulationControlToolbar extends AbstractToolbar {
 
     private void handleStop(ActionEvent event) {
         var command = new StopSimulation();
-        new EventStream.Publish<>(command);
+        applicationContext.commandBus.emit(command);
         add.setDisable(true);
         stop.setDisable(true);
         start.setDisable(false);
