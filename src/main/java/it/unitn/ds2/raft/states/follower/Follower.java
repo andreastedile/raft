@@ -31,7 +31,7 @@ public final class Follower extends Server {
         var servers = new Servers();
 
         return Behaviors.setup(ctx -> {
-                    ctx.setLoggerName(ctx.getSystem().name());
+                    ctx.setLoggerName(ctx.getSelf().path().name());
 
                     var spawn = new Spawn(ctx.getSelf(), ctx.getSystem().uptime());
                     var publish = new EventStream.Publish<>(spawn);
