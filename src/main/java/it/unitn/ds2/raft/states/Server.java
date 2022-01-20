@@ -104,7 +104,7 @@ public class Server {
     }
 
     protected static Behavior<Raft> stop(ActorContext<Raft> ctx, Servers servers, State state, Stop msg) {
-        System.out.println("Stopping...");
+        ctx.getLog().info("Received stop command, terminating");
 
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.OFFLINE);
         var publish = new EventStream.Publish<>(event);
@@ -117,23 +117,24 @@ public class Server {
 
     protected static Behavior<Raft> crash(ActorContext<Raft> ctx, Servers servers, State state,
                                           TimerScheduler<Raft> timers, Crash msg) {
-        ctx.getLog().debug("Crashing...");
+
+        String milliseconds;
+        if (msg.duration == null) {
+            // No duration specified
+            milliseconds = "infinite ";
+        } else {
+            milliseconds = String.valueOf(msg.duration.toMillis());
+        }
+
+        ctx.getLog().info("Received crash command, crashing for " + milliseconds + "ms");
 
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CRASHED);
         var publish = new EventStream.Publish<>(event);
         ctx.getSystem().eventStream().tell(publish);
 
-
+        // Schedule a message to self for recovery
         if (msg.duration != null) {
             timers.startSingleTimer("restart", new Start(), msg.duration);
-
-//            ctx.getSystem().scheduler().scheduleOnce(
-//                    msg.duration, // duration
-//                    ctx.getSelf(), // target
-//                    new Start(), // message
-//                    ctx.getSystem().dispatchers(), // dispatcher
-//                    null // sender
-//            )
         }
 
         return Behaviors.receive(Raft.class)

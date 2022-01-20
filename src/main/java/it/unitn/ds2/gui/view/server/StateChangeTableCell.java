@@ -38,12 +38,12 @@ public class StateChangeTableCell<T> extends TableCell<T, ServerModel> {
                 if (item.getServer().equals(stateChangeEvent.publisher)) {
                     switch (stateChangeEvent.state) {
                         case OFFLINE -> {
-                            button.setText("Resume");
-                            button.setDisable(false);
-                            button.setOnAction(event -> {
-                                var command = new RestartServer(item.getServer());
-                                applicationContext.commandBus.emit(command);
-                            });
+                            button.setText("Stopped");
+                            button.setDisable(true);
+                            //button.setOnAction(event -> {
+                            //    var command = new RestartServer(item.getServer());
+                            //    applicationContext.commandBus.emit(command);
+                            //});
                         }
                         case FOLLOWER, LEADER, CANDIDATE -> {
                             button.setText("Crash");
