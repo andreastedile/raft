@@ -105,6 +105,9 @@ public class Server {
 
     protected static Behavior<Raft> stop(ActorContext<Raft> ctx, Servers servers, State state, Stop msg) {
         ctx.getLog().info("Received stop command, terminating");
+        ctx.getLog().debug("Dumping state for debugging purposes");
+        ctx.getLog().debug(state.toString());
+
 
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.OFFLINE);
         var publish = new EventStream.Publish<>(event);

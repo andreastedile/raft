@@ -37,7 +37,11 @@ public class VotedFor implements ContextAware {
 
     @Override
     public String toString() {
-        return votedFor.path().name();
+        if (votedFor != null) {
+            return votedFor.path().name();
+        } else {
+            return "∅";
+        }
     }
 
     @Override

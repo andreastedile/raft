@@ -28,4 +28,15 @@ public abstract class State {
         this.commitIndex = commitIndex;
         this.lastApplied = lastApplied;
     }
+
+    @Override
+    public String toString() {
+        return "State{" +
+                "currentTerm=" + currentTerm +
+                ", votedFor=" + votedFor +
+                ", log=" + log +
+                ", commitIndex=" + commitIndex +
+                ", lastApplied=" + lastApplied +
+                '}';
+    }
 }
