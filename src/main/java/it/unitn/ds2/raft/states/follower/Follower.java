@@ -13,6 +13,7 @@ import it.unitn.ds2.raft.rpc.AppendEntries;
 import it.unitn.ds2.raft.rpc.AppendEntriesResult;
 import it.unitn.ds2.raft.rpc.ElectionTimeout;
 import it.unitn.ds2.raft.rpc.RequestVote;
+import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Join;
 import it.unitn.ds2.raft.simulation.Start;
 import it.unitn.ds2.raft.states.Server;
@@ -75,14 +76,13 @@ public final class Follower extends Server {
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
 
-            return Behaviors.intercept(() -> interceptCrashes(ctx, servers, state, timers),
-                    Behaviors.intercept(() -> checkTerm(timers, servers, state),
-                            Behaviors.receive(Raft.class)
-                                    .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
-                                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
-                                    .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
-                                    .build()
-                    )
+            return Behaviors.intercept(() -> checkTerm(timers, servers, state),
+                    Behaviors.receive(Raft.class)
+                            .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
+                            .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
+                            .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
+                            .onMessage(Crash.class, msg -> crash(ctx, servers, state, timers, msg))
+                            .build()
             );
         });
     }

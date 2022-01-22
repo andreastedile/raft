@@ -86,23 +86,6 @@ public class Server {
         };
     }
 
-    protected static BehaviorInterceptor<Raft, Raft> interceptCrashes(
-            ActorContext<Raft> ctx, Servers servers, State state, TimerScheduler<Raft> timers) {
-        return new BehaviorInterceptor<>(Raft.class) {
-            @Override
-            public Behavior<Raft> aroundReceive(TypedActorContext<Raft> ctx, Raft msg, ReceiveTarget<Raft> target) {
-                ActorContext<Raft> convertedCtx = (ActorContext<Raft>) ctx;
-                if (msg instanceof Crash crashMessage) {
-                    return crash(convertedCtx, servers, state, timers, crashMessage);
-                } else if (msg instanceof Stop stopMessage) {
-                    return stop(convertedCtx, servers, state, stopMessage);
-                } else {
-                    return target.apply(ctx, msg);
-                }
-            }
-        };
-    }
-
     protected static Behavior<Raft> stop(ActorContext<Raft> ctx, Servers servers, State state, Stop msg) {
         ctx.getLog().info("Received stop command, terminating");
         ctx.getLog().debug("Dumping state for debugging purposes");
