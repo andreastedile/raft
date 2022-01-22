@@ -10,18 +10,15 @@ import akka.actor.typed.javadsl.Receive;
 import it.unitn.ds2.gui.commands.*;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.RaftEvent;
-import it.unitn.ds2.raft.properties.SimulationProperties;
 import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Join;
 import it.unitn.ds2.raft.simulation.Start;
 import it.unitn.ds2.raft.simulation.Stop;
-import it.unitn.ds2.raft.states.follower.Follower;
+import it.unitn.ds2.raft.states.offline.Offline;
 import javafx.application.Platform;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class SimulationController extends AbstractBehavior<Raft> {
     private final ApplicationContext applicationContext;
@@ -72,7 +69,7 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
     private Behavior<Raft> onAddServer(AddServer command) {
         getContext().getLog().info("Add server command");
-        var server = getContext().spawn(Follower.create(), "server" + (servers.size() + 1));
+        var server = getContext().spawn(Offline.create(), "server" + (servers.size() + 1));
 
         var join = new Join(server);
         servers.forEach(other -> other.tell(join));

@@ -38,7 +38,7 @@ public class StateChangeTableCell<T> extends TableCell<T, ServerModel> {
                 if (item.getServer().equals(stateChangeEvent.publisher)) {
                     switch (stateChangeEvent.state) {
                         case OFFLINE -> {
-                            button.setText("Stopped");
+                            button.setText("Offline");
                             button.setDisable(true);
                             //button.setOnAction(event -> {
                             //    var command = new RestartServer(item.getServer());

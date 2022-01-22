@@ -13,6 +13,7 @@ import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.fields.Votes;
 import it.unitn.ds2.raft.rpc.*;
 import it.unitn.ds2.raft.simulation.Crash;
+import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.Server;
 import it.unitn.ds2.raft.states.follower.Follower;
 import it.unitn.ds2.raft.states.follower.FollowerState;
@@ -58,7 +59,8 @@ public final class Candidate extends Server {
                                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
                                     .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, timers, servers, state))
                                     .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
-                                    .onMessage(Crash.class, msg -> crash(ctx, servers, state, timers, msg))
+                                    .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
+                                    .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
                                     .build()
                     )
             );

@@ -3,12 +3,10 @@ package it.unitn.ds2.raft.states;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.BehaviorInterceptor;
 import akka.actor.typed.TypedActorContext;
-import akka.actor.typed.eventstream.EventStream;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
-import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.SeqNum;
 import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.properties.SimulationProperties;
@@ -18,9 +16,9 @@ import it.unitn.ds2.raft.rpc.RequestVote;
 import it.unitn.ds2.raft.rpc.Vote;
 import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Start;
-import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.follower.Follower;
 import it.unitn.ds2.raft.states.follower.FollowerState;
+import it.unitn.ds2.raft.states.offline.Offline;
 
 public class Server {
 
@@ -87,45 +85,30 @@ public class Server {
     }
 
     protected static Behavior<Raft> stop(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
-                                         Servers servers, State state, Stop msg) {
+                                         Servers servers, State state) {
         timers.cancelAll();
 
-        ctx.getLog().info("Received stop command, terminating");
-        ctx.getLog().debug("Dumping state for debugging purposes");
-        ctx.getLog().debug(state.toString());
+        ctx.getLog().info("Received stop command. State is:\n" + state);
 
-
-        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.OFFLINE);
-        var publish = new EventStream.Publish<>(event);
-        ctx.getSystem().eventStream().tell(publish);
-
-        return Behaviors.receive(Raft.class)
-                .onMessage(Start.class, unused -> Follower.onStart(ctx, servers))
-                .build();
+        return Offline.waiting(ctx, servers, state);
     }
 
-    protected static Behavior<Raft> crash(ActorContext<Raft> ctx, Servers servers, State state,
-                                          TimerScheduler<Raft> timers, Crash msg) {
+    protected static Behavior<Raft> crash(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                          Servers servers, State state, Crash msg) {
         timers.cancelAll();
 
         if (msg.duration == null) {
-            ctx.getLog().info("Received crash command");
+            ctx.getLog().info("Received crash command. State is:\n" + state);
         } else {
-            ctx.getLog().info("Received crash command, crashing for " + msg.duration.toMillis() + "ms");
+            ctx.getLog().info("Received crash command, crashing for " + msg.duration.toMillis() + "ms. State is:\n" + state);
         }
-
-        var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CRASHED);
-        var publish = new EventStream.Publish<>(event);
-        ctx.getSystem().eventStream().tell(publish);
 
         // Schedule a message to self for recovery
         if (msg.duration != null) {
             timers.startSingleTimer("restart", new Start(), msg.duration);
         }
 
-        return Behaviors.receive(Raft.class)
-                .onMessage(Start.class, unused -> Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state)))
-                .build();
+        return Offline.waiting(ctx, servers, state);
     }
 
     protected static int majority(int groupSize) {

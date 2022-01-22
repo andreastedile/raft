@@ -17,6 +17,7 @@ import it.unitn.ds2.raft.rpc.AppendEntriesResult;
 import it.unitn.ds2.raft.rpc.RPCTimeout;
 import it.unitn.ds2.raft.simulation.Command;
 import it.unitn.ds2.raft.simulation.Crash;
+import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.Server;
 
 import java.time.Duration;
@@ -43,7 +44,8 @@ public final class Leader extends Server {
                                             .onMessage(Command.class, msg -> onCommand(ctx, stash, timers, servers, seqNum, state, msg))
                                             .onMessage(AppendEntriesResult.class, msg -> onAppendEntriesResult(ctx, stash, timers, servers, seqNum, state, msg))
                                             .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
-                                            .onMessage(Crash.class, msg -> crash(ctx, servers, state, timers, msg))
+                                            .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
+                                            .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
                                             .build()
                             )
                     );
