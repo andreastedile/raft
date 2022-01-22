@@ -121,7 +121,7 @@ public class Server {
         }
 
         return Behaviors.receive(Raft.class)
-                .onMessage(Start.class, unused -> Follower.onStart(ctx, servers))
+                .onMessage(Start.class, unused -> Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state)))
                 .build();
     }
 
