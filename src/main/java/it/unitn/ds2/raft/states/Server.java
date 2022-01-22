@@ -122,15 +122,11 @@ public class Server {
                                           TimerScheduler<Raft> timers, Crash msg) {
         timers.cancelAll();
 
-        String milliseconds;
         if (msg.duration == null) {
-            // No duration specified
-            milliseconds = "infinite ";
+            ctx.getLog().info("Received crash command");
         } else {
-            milliseconds = String.valueOf(msg.duration.toMillis());
+            ctx.getLog().info("Received crash command, crashing for " + msg.duration.toMillis() + "ms");
         }
-
-        ctx.getLog().info("Received crash command, crashing for " + milliseconds + "ms");
 
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CRASHED);
         var publish = new EventStream.Publish<>(event);
