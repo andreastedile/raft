@@ -49,7 +49,7 @@ public class StateChangeTableCell<T> extends TableCell<T, ServerModel> {
                                 var duration = randomCrashDuration();
                                 var command = new CrashServer(item.getServer(), duration);
                                 applicationContext.commandBus.emit(command);
-                                button.setText("Crashed (" + duration.getSeconds() + "s)");
+                                button.setText("Crashed (" + duration.toMillis() + "s)");
                                 button.setDisable(true);
                             });
                         }
@@ -61,7 +61,7 @@ public class StateChangeTableCell<T> extends TableCell<T, ServerModel> {
 
     private static Duration randomCrashDuration() {
         var properties = SimulationProperties.getInstance();
-        long durationS = ThreadLocalRandom.current().nextLong(properties.maxCrashDuration);
-        return Duration.ofSeconds(durationS);
+        long durationMs = ThreadLocalRandom.current().nextLong(properties.maxCrashDurationMs);
+        return Duration.ofSeconds(durationMs);
     }
 }
