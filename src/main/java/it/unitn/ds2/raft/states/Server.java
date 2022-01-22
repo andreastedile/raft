@@ -120,6 +120,7 @@ public class Server {
 
     protected static Behavior<Raft> crash(ActorContext<Raft> ctx, Servers servers, State state,
                                           TimerScheduler<Raft> timers, Crash msg) {
+        timers.cancelAll();
 
         String milliseconds;
         if (msg.duration == null) {
