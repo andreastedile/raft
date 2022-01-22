@@ -8,24 +8,20 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import it.unitn.ds2.gui.commands.*;
+import it.unitn.ds2.raft.Client;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.RaftEvent;
-import it.unitn.ds2.raft.properties.SimulationProperties;
-import it.unitn.ds2.raft.simulation.Crash;
-import it.unitn.ds2.raft.simulation.Join;
-import it.unitn.ds2.raft.simulation.Start;
-import it.unitn.ds2.raft.simulation.Stop;
+import it.unitn.ds2.raft.simulation.*;
 import it.unitn.ds2.raft.states.follower.Follower;
 import javafx.application.Platform;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class SimulationController extends AbstractBehavior<Raft> {
     private final ApplicationContext applicationContext;
     private final List<ActorRef<Raft>> servers;
+    private final ActorRef<Raft> client;
 
     public SimulationController(ActorContext<Raft> actorContext, ApplicationContext applicationContext) {
         super(actorContext);
@@ -33,6 +29,7 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
         this.applicationContext = applicationContext;
         servers = new ArrayList<>();
+        client = getContext().spawn(Client.create(), "Raft-Client");
 
         applicationContext.commandBus.listenFor(AddServer.class, this::onAddServer);
         applicationContext.commandBus.listenFor(CrashServer.class, this::onCrashServer);
@@ -93,6 +90,7 @@ public class SimulationController extends AbstractBehavior<Raft> {
         getContext().getLog().info("Start simulation command");
         var start = new Start();
         servers.forEach(server -> server.tell(start));
+        client.tell(new ClientStart(servers));
         return this;
     }
 
@@ -104,8 +102,8 @@ public class SimulationController extends AbstractBehavior<Raft> {
     }
 
     private Behavior<Raft> onSendStateMachineCommand(SendCommand command) {
-        getContext().getLog().info("Send state machine command command");
-        servers.forEach(server -> server.tell(command.command));
+        getContext().getLog().info("Send state machine command to client");
+        client.tell(command.command);
         return this;
     }
 

@@ -16,8 +16,6 @@ import it.unitn.ds2.raft.rpc.AppendEntries;
 import it.unitn.ds2.raft.rpc.AppendEntriesResult;
 import it.unitn.ds2.raft.rpc.RPCTimeout;
 import it.unitn.ds2.raft.simulation.Command;
-import it.unitn.ds2.raft.simulation.Crash;
-import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.Server;
 
 import java.time.Duration;
@@ -33,6 +31,7 @@ public final class Leader extends Server {
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.LEADER);
         var publish = new EventStream.Publish<>(event);
         ctx.getSystem().eventStream().tell(publish);
+
 
         return Behaviors.withTimers(timers ->
                 Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
