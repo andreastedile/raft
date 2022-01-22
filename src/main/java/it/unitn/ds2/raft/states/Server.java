@@ -86,7 +86,10 @@ public class Server {
         };
     }
 
-    protected static Behavior<Raft> stop(ActorContext<Raft> ctx, Servers servers, State state, Stop msg) {
+    protected static Behavior<Raft> stop(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                         Servers servers, State state, Stop msg) {
+        timers.cancelAll();
+
         ctx.getLog().info("Received stop command, terminating");
         ctx.getLog().debug("Dumping state for debugging purposes");
         ctx.getLog().debug(state.toString());
