@@ -16,6 +16,8 @@ import it.unitn.ds2.raft.rpc.AppendEntries;
 import it.unitn.ds2.raft.rpc.AppendEntriesResult;
 import it.unitn.ds2.raft.rpc.RPCTimeout;
 import it.unitn.ds2.raft.simulation.Command;
+import it.unitn.ds2.raft.simulation.Crash;
+import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.Server;
 
 import java.time.Duration;
@@ -37,18 +39,19 @@ public final class Leader extends Server {
                 Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
                     servers.getAll().forEach(server -> appendEntriesRPC(ctx, timers, seqNum, state, server, true));
 
-                    return Behaviors.intercept(() -> interceptCrashes(ctx, servers, state, timers),
-                            Behaviors.intercept(() -> checkSeqNum(timers, seqNum),
-                                    Behaviors.intercept(() -> checkTerm(timers, servers, state),
-                                            Behaviors.receive(Raft.class)
-                                                    .onMessage(Command.class, msg -> onCommand(ctx, stash, timers, servers, seqNum, state, msg))
-                                                    .onMessage(AppendEntriesResult.class, msg -> onAppendEntriesResult(ctx, stash, timers, servers, seqNum, state, msg))
-                                                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
-                                                    .build()
-                                    )
+                    return Behaviors.intercept(() -> checkSeqNum(timers, seqNum),
+                            Behaviors.intercept(() -> checkTerm(timers, servers, state),
+                                    Behaviors.receive(Raft.class)
+                                            .onMessage(Command.class, msg -> onCommand(ctx, stash, timers, servers, seqNum, state, msg))
+                                            .onMessage(AppendEntriesResult.class, msg -> onAppendEntriesResult(ctx, stash, timers, servers, seqNum, state, msg))
+                                            .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, timers, seqNum, state, msg))
+                                            .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
+                                            .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
+                                            .build()
                             )
                     );
-                }));
+                })
+        );
     }
 
     private static Behavior<Raft> onCommand(ActorContext<Raft> ctx, StashBuffer<Raft> stash, TimerScheduler<Raft> timers, Servers servers, SeqNum seqNum, LeaderState state, Command msg) {

@@ -6,7 +6,6 @@ import it.unitn.ds2.raft.Raft;
 public class StateChange extends RaftEvent {
     public enum State {
         OFFLINE,
-        CRASHED,
         FOLLOWER,
         CANDIDATE,
         LEADER

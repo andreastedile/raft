@@ -16,11 +16,12 @@ import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Join;
 import it.unitn.ds2.raft.simulation.Start;
 import it.unitn.ds2.raft.simulation.Stop;
-import it.unitn.ds2.raft.states.follower.Follower;
+import it.unitn.ds2.raft.states.offline.Offline;
 import javafx.application.Platform;
 
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class SimulationController extends AbstractBehavior<Raft> {
     private final ApplicationContext applicationContext;
@@ -35,14 +36,6 @@ public class SimulationController extends AbstractBehavior<Raft> {
         servers = new ArrayList<>();
         client = getContext().spawn(Client.create(), "Raft-Client");
 
-        applicationContext.commandBus.listenFor(AddServer.class, this::onAddServer);
-        applicationContext.commandBus.listenFor(CrashServer.class, this::onCrashServer);
-        applicationContext.commandBus.listenFor(StartSimulation.class, this::onStartSimulation);
-        applicationContext.commandBus.listenFor(StopSimulation.class, this::onStopSimulation);
-        applicationContext.commandBus.listenFor(SendCommand.class, this::onSendStateMachineCommand);
-        applicationContext.commandBus.listenFor(RestartServer.class, this::onRestartServerCommand);
-
-
         var subscribe = new EventStream.Subscribe<>(RaftEvent.class, actorContext.getSelf().narrow());
         actorContext.getSystem().eventStream().tell(subscribe);
     }
@@ -53,6 +46,9 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
     @Override
     public Receive<Raft> createReceive() {
+        var subscribe = new EventStream.Subscribe<>(RaftEvent.class, getContext().getSelf().narrow());
+        getContext().getSystem().eventStream().tell(subscribe);
+
         return newReceiveBuilder()
                 // it.unitn.ds2.raft.events
                 .onMessage(RaftEvent.class, this::onEvent)
@@ -73,7 +69,7 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
     private Behavior<Raft> onAddServer(AddServer command) {
         getContext().getLog().info("Add server command");
-        var server = getContext().spawn(Follower.create(), "server" + (servers.size() + 1));
+        var server = getContext().spawn(Offline.create(), "server" + (servers.size() + 1));
 
         var join = new Join(server);
         servers.forEach(other -> other.tell(join));

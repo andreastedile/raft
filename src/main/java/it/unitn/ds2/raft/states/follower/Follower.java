@@ -6,15 +6,14 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
-import it.unitn.ds2.raft.events.Spawn;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.rpc.AppendEntries;
 import it.unitn.ds2.raft.rpc.AppendEntriesResult;
 import it.unitn.ds2.raft.rpc.ElectionTimeout;
 import it.unitn.ds2.raft.rpc.RequestVote;
-import it.unitn.ds2.raft.simulation.Join;
-import it.unitn.ds2.raft.simulation.Start;
+import it.unitn.ds2.raft.simulation.Crash;
+import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.Server;
 import it.unitn.ds2.raft.states.candidate.Candidate;
 import it.unitn.ds2.raft.states.candidate.CandidateState;
@@ -27,45 +26,6 @@ public final class Follower extends Server {
         return ThreadLocalRandom.current().nextLong(properties.minElectionTimeoutMs, properties.maxElectionTimeoutMs);
     }
 
-    public static Behavior<Raft> create() {
-        var servers = new Servers();
-
-        return Behaviors.setup(ctx -> {
-                    ctx.setLoggerName(ctx.getSelf().path().name());
-
-                    var spawn = new Spawn(ctx.getSelf(), ctx.getSystem().uptime());
-                    var publish = new EventStream.Publish<>(spawn);
-                    ctx.getSystem().eventStream().tell(publish);
-
-                    return Behaviors.receive(Raft.class)
-                            .onMessage(Join.class, msg -> onJoin(ctx, servers, msg))
-                            .onMessage(Start.class, msg -> onStart(ctx, servers))
-                            .build();
-                }
-        );
-    }
-
-    public static Behavior<Raft> onJoin(ActorContext<Raft> ctx, Servers servers, Join msg) {
-        //if (servers.getAll().contains(msg.server)) {
-        //}
-        ctx.getLog().info(msg.server + " joined the Raft cluster");
-        servers.add(msg.server);
-        return Behaviors.same();
-    }
-
-    public static Behavior<Raft> onStart(ActorContext<Raft> ctx, Servers servers) {
-        ctx.getLog().info("Starting");
-
-        var state = new FollowerState();
-        state.currentTerm.setCtx(ctx);
-        state.votedFor.setCtx(ctx);
-        state.log.setCtx(ctx);
-        state.commitIndex.setCtx(ctx);
-        state.lastApplied.setCtx(ctx);
-
-        return waitForAppendEntries(ctx, servers, state);
-    }
-
     public static Behavior<Raft> waitForAppendEntries(ActorContext<Raft> ctx, Servers servers, FollowerState state) {
         // Inform everyone that I'm a follower again
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.FOLLOWER);
@@ -75,14 +35,14 @@ public final class Follower extends Server {
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
 
-            return Behaviors.intercept(() -> interceptCrashes(ctx, servers, state, timers),
-                    Behaviors.intercept(() -> checkTerm(timers, servers, state),
-                            Behaviors.receive(Raft.class)
-                                    .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
-                                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
-                                    .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
-                                    .build()
-                    )
+            return Behaviors.intercept(() -> checkTerm(timers, servers, state),
+                    Behaviors.receive(Raft.class)
+                            .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
+                            .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
+                            .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
+                            .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
+                            .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
+                            .build()
             );
         });
     }
