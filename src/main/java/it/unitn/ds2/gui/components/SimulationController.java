@@ -30,9 +30,6 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
         this.applicationContext = applicationContext;
         servers = new ArrayList<>();
-
-        var subscribe = new EventStream.Subscribe<>(RaftEvent.class, actorContext.getSelf().narrow());
-        actorContext.getSystem().eventStream().tell(subscribe);
     }
 
     public static Behavior<Raft> create(ApplicationContext applicationContext) {
@@ -41,6 +38,9 @@ public class SimulationController extends AbstractBehavior<Raft> {
 
     @Override
     public Receive<Raft> createReceive() {
+        var subscribe = new EventStream.Subscribe<>(RaftEvent.class, getContext().getSelf().narrow());
+        getContext().getSystem().eventStream().tell(subscribe);
+
         return newReceiveBuilder()
                 // it.unitn.ds2.raft.events
                 .onMessage(RaftEvent.class, this::onEvent)
