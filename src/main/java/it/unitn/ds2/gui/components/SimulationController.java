@@ -11,7 +11,11 @@ import it.unitn.ds2.gui.commands.*;
 import it.unitn.ds2.raft.Client;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.RaftEvent;
-import it.unitn.ds2.raft.simulation.*;
+import it.unitn.ds2.raft.rpc.ClientStart;
+import it.unitn.ds2.raft.simulation.Crash;
+import it.unitn.ds2.raft.simulation.Join;
+import it.unitn.ds2.raft.simulation.Start;
+import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.follower.Follower;
 import javafx.application.Platform;
 
