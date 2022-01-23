@@ -31,14 +31,6 @@ public class SimulationController extends AbstractBehavior<Raft> {
         this.applicationContext = applicationContext;
         servers = new ArrayList<>();
 
-        applicationContext.commandBus.listenFor(AddServer.class, this::onAddServer);
-        applicationContext.commandBus.listenFor(CrashServer.class, this::onCrashServer);
-        applicationContext.commandBus.listenFor(StartSimulation.class, this::onStartSimulation);
-        applicationContext.commandBus.listenFor(StopSimulation.class, this::onStopSimulation);
-        applicationContext.commandBus.listenFor(SendCommand.class, this::onSendStateMachineCommand);
-        applicationContext.commandBus.listenFor(RestartServer.class, this::onRestartServerCommand);
-
-
         var subscribe = new EventStream.Subscribe<>(RaftEvent.class, actorContext.getSelf().narrow());
         actorContext.getSystem().eventStream().tell(subscribe);
     }
