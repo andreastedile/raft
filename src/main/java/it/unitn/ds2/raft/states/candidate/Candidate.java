@@ -50,7 +50,7 @@ public final class Candidate extends Server {
 
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
-            servers.getAll().forEach(server -> sendRequestVote(ctx, seqNum, server, state));
+            servers.getAll().forEach(server -> sendRequestVote(ctx, seqNum, server, state, false));
 
             return Behaviors.receive(Raft.class)
                     .onMessage(RequestVoteRPCResponse.class, msg -> onVote(ctx, timers, servers, seqNum, votes, state, msg))
@@ -70,13 +70,13 @@ public final class Candidate extends Server {
         ctx.getLog().debug("Election timeout ← " + timeout + "ms");
     }
 
-    public static void sendRequestVote(ActorContext<Raft> ctx, SeqNum seqNum, ActorRef<Raft> recipient, CandidateState state) {
+    public static void sendRequestVote(ActorContext<Raft> ctx, SeqNum seqNum, ActorRef<Raft> recipient, CandidateState state, boolean isRetry) {
         var request = new VoteRequest(ctx.getSelf(), state.currentTerm.get(), ctx.getSelf(), state.log.lastLogIndex(), state.log.lastLogTerm());
         ctx.getLog().debug("Requesting vote " + request + " to " + recipient.path().name());
 
         ctx.ask(Vote.class, // resClass
                 recipient, // target
-                Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
+                isRetry ? Duration.ofMillis(500) : Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
                 (ActorRef<Vote> replyTo) -> new RequestVoteRPC(ctx.getSelf(), seqNum.computeNext(recipient), replyTo, request), // createRequest
                 (response, throwable) -> { // applyToResponse
                     if (response != null) {
@@ -89,7 +89,7 @@ public final class Candidate extends Server {
 
     private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, SeqNum seqNum, CandidateState state, ActorRef<Raft> recipient) {
         ctx.getLog().debug("RPC timeout waiting for " + recipient.path().name());
-        sendRequestVote(ctx, seqNum, recipient, state);
+        sendRequestVote(ctx, seqNum, recipient, state, true);
         return Behaviors.same();
     }
 

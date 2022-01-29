@@ -34,7 +34,7 @@ public final class Leader extends Server {
         ctx.getSystem().eventStream().tell(publish);
 
         return Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
-            servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, true));
+            servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, true, false));
 
             return Behaviors.receive(Raft.class)
                     .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, seqNum, state, msg))
@@ -53,7 +53,7 @@ public final class Leader extends Server {
         if (stash.isEmpty()) {
             var entry = new LogEntry(msg.command, state.currentTerm.get());
             state.log.append(entry);
-            servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, false));
+            servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, false, false));
         } else {
             ctx.getLog().debug(stash.size() + " commands still needs to be processed. Stashing the command");
             stash.stash(msg);
@@ -61,7 +61,8 @@ public final class Leader extends Server {
         return Behaviors.same();
     }
 
-    private static void appendEntriesRPC(ActorContext<Raft> ctx, SeqNum seqNum, LeaderState state, ActorRef<Raft> recipient, boolean isHeartbeat) {
+    private static void appendEntriesRPC(ActorContext<Raft> ctx, SeqNum seqNum, LeaderState state,
+                                         ActorRef<Raft> recipient, boolean isHeartbeat, boolean isRetry) {
         var appendEntries = createAppendEntries(ctx, state, recipient, isHeartbeat);
         if (isHeartbeat) {
             ctx.getLog().debug("Sending heartbeat " + appendEntries + " to " + recipient.path().name());
@@ -70,7 +71,7 @@ public final class Leader extends Server {
         }
         ctx.ask(AppendEntriesResult.class, // resClass
                 recipient, // target
-                Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
+                isRetry ? Duration.ofMillis(100) : Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
                 (ActorRef<AppendEntriesResult> replyTo) -> new AppendEntriesRPC(ctx.getSelf(), seqNum.computeNext(recipient), replyTo, appendEntries), // createRequest
                 (response, throwable) -> { // applyToResponse
                     if (response != null) {
@@ -83,7 +84,7 @@ public final class Leader extends Server {
 
     private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, SeqNum seqNum, LeaderState state, RPCTimeout msg) {
         ctx.getLog().debug("RPC timeout waiting for " + msg.server.path().name());
-        appendEntriesRPC(ctx, seqNum, state, msg.server, false);
+        appendEntriesRPC(ctx, seqNum, state, msg.server, false, true);
         return Behaviors.same();
     }
 
@@ -128,11 +129,11 @@ public final class Leader extends Server {
                         }
                     });
 
-            appendEntriesRPC(ctx, seqNum, state, msg.sender, true);
+            appendEntriesRPC(ctx, seqNum, state, msg.sender, true, false);
         } else {
             state.nextIndex.decrement(msg.sender);
 
-            appendEntriesRPC(ctx, seqNum, state, msg.sender, false);
+            appendEntriesRPC(ctx, seqNum, state, msg.sender, false, false);
         }
 
         return Behaviors.same();
