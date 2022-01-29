@@ -7,7 +7,7 @@ import it.unitn.ds2.raft.fields.LogEntry;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class AppendEntries extends AbstractRPCMsg implements RPCRequest {
+public final class AppendEntries extends AbstractRaftMsg implements RaftRequest {
     public final ActorRef<Raft> leaderId;
     public final int prevLogIndex;
     public final int prevLogTerm;
@@ -17,17 +17,16 @@ public class AppendEntries extends AbstractRPCMsg implements RPCRequest {
     /**
      * Invoked by leader to replicate log entries; also used as heartbeat.
      *
-     * @param sender       for the receiver to reply to.
+     * @param sender       server of the message.
      * @param term         leader’s term.
-     * @param seqNum       for sender to check if reply was reordered.
      * @param leaderId     so follower can redirect clients.
      * @param prevLogIndex index of log entry immediately preceding new ones.
      * @param prevLogTerm  term of prevLogIndex entry.
      * @param entries      log entries to store (empty for heartbeat, may send more than one for efficiency).
      * @param leaderCommit leader’s commitIndex.
      */
-    public AppendEntries(ActorRef<Raft> sender, int seqNum, int term, ActorRef<Raft> leaderId, int prevLogIndex, int prevLogTerm, List<LogEntry> entries, int leaderCommit) {
-        super(sender, seqNum, term);
+    public AppendEntries(ActorRef<Raft> sender, int term, ActorRef<Raft> leaderId, int prevLogIndex, int prevLogTerm, List<LogEntry> entries, int leaderCommit) {
+        super(sender, term);
         this.leaderId = leaderId;
         this.prevLogIndex = prevLogIndex;
         this.prevLogTerm = prevLogTerm;
@@ -42,24 +41,12 @@ public class AppendEntries extends AbstractRPCMsg implements RPCRequest {
     @Override
     public String toString() {
         return "AppendEntries{" +
-                "sender=" + sender.path().name() +
-                ", seqNum=" + seqNum +
-                ", term=" + term +
+                "term=" + term +
                 ", leaderId=" + leaderId.path().name() +
                 ", prevLogIndex=" + prevLogIndex +
                 ", prevLogTerm=" + prevLogTerm +
                 ", entries=[" + entries.stream().map(LogEntry::toString).collect(Collectors.joining(", ")) + "]" +
                 ", leaderCommit=" + leaderCommit +
                 '}';
-    }
-
-    @Override
-    public ActorRef<RPC> sender() {
-        return leaderId.narrow();
-    }
-
-    @Override
-    public int seqNum() {
-        return seqNum;
     }
 }

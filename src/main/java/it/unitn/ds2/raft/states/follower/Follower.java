@@ -8,10 +8,10 @@ import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.Servers;
-import it.unitn.ds2.raft.rpc.AppendEntries;
+import it.unitn.ds2.raft.rpc.AppendEntriesRPC;
 import it.unitn.ds2.raft.rpc.AppendEntriesResult;
 import it.unitn.ds2.raft.rpc.ElectionTimeout;
-import it.unitn.ds2.raft.rpc.RequestVote;
+import it.unitn.ds2.raft.rpc.RequestVoteRPC;
 import it.unitn.ds2.raft.simulation.Crash;
 import it.unitn.ds2.raft.simulation.Stop;
 import it.unitn.ds2.raft.states.Server;
@@ -35,15 +35,13 @@ public final class Follower extends Server {
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
 
-            return Behaviors.intercept(() -> checkTerm(timers, servers, state),
-                    Behaviors.receive(Raft.class)
-                            .onMessage(AppendEntries.class, msg -> onAppendEntries(ctx, timers, state, msg))
-                            .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
-                            .onMessage(RequestVote.class, msg -> requestVoteRPC(ctx, state, msg))
-                            .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
-                            .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
-                            .build()
-            );
+            return Behaviors.receive(Raft.class)
+                    .onMessage(AppendEntriesRPC.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
+                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
+                    .onMessage(RequestVoteRPC.class, msg -> onVote(ctx, state, msg))
+                    .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
+                    .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
+                    .build();
         });
     }
 
@@ -58,40 +56,49 @@ public final class Follower extends Server {
         return Candidate.beginElection(ctx, servers, CandidateState.fromState(state));
     }
 
-    private static Behavior<Raft> onAppendEntries(ActorContext<Raft> ctx, TimerScheduler<Raft> timers, FollowerState state, AppendEntries msg) {
+    private static Behavior<Raft> onAppendEntries(ActorContext<Raft> ctx, TimerScheduler<Raft> timers, Servers servers, FollowerState state, AppendEntriesRPC msg) {
         ctx.getLog().debug("Received " + msg);
+
+        if (msg.req.term > state.currentTerm.get()) {
+            ctx.getLog().debug("Received " + msg);
+            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            state.currentTerm.set(msg.req.term);
+            state.votedFor.set(null);
+            timers.cancel("election timeout");
+            return Follower.waitForAppendEntries(ctx.asJava(), servers, FollowerState.fromAnyState(state));
+        }
 
         startElectionTimer(ctx, timers);
 
         // 1. Reply false if term < currentTerm
-        if (msg.term < state.currentTerm.get()) {
-            ctx.getLog().debug("Sender is lagging (message's term is " + msg.term + ", currentTerm is " + state.currentTerm.get() + ")");
-            var result = new AppendEntriesResult(ctx.getSelf(), msg.seqNum, state.currentTerm.get(), false);
-            msg.sender.tell(result);
+        if (msg.req.term < state.currentTerm.get()) {
+            ctx.getLog().debug("Sender is lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm.get() + ")");
+            var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
+            msg.replyTo.tell(result);
             return Behaviors.same();
         }
         // 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm
-        if (msg.prevLogIndex > 0 && state.log.lastLogIndex() == 0) {
-            ctx.getLog().debug("Lagging (message's prevLogIndex is " + msg.prevLogIndex + ", lastLogIndex is 0)");
-            var result = new AppendEntriesResult(ctx.getSelf(), msg.seqNum, state.currentTerm.get(), false);
-            msg.sender.tell(result);
+        if (msg.req.prevLogIndex > 0 && state.log.lastLogIndex() == 0) {
+            ctx.getLog().debug("Lagging (message's prevLogIndex is " + msg.req.prevLogIndex + ", lastLogIndex is 0)");
+            var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
+            msg.replyTo.tell(result);
             return Behaviors.same();
         }
-        if (msg.prevLogIndex > 0 && state.log.get(msg.prevLogIndex).term != msg.prevLogTerm) {
-            ctx.getLog().debug("Lagging (message's prevLogTerm is " + msg.prevLogTerm + ", but log has " + state.log.get(msg.prevLogIndex).term);
-            var result = new AppendEntriesResult(ctx.getSelf(), msg.seqNum, state.currentTerm.get(), false);
-            msg.sender.tell(result);
+        if (msg.req.prevLogIndex > 0 && state.log.get(msg.req.prevLogIndex).term != msg.req.prevLogTerm) {
+            ctx.getLog().debug("Lagging (message's prevLogTerm is " + msg.req.prevLogTerm + ", but log has " + state.log.get(msg.req.prevLogIndex).term);
+            var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
+            msg.replyTo.tell(result);
             return Behaviors.same();
         }
         // 3. If an existing entry conflicts with a new one (same index but different terms),
         // delete the existing entry and all that follow it
         // 4. Append any new entries not already in the log
-        state.log.storeEntries(msg.prevLogIndex + 1, msg.entries);
+        state.log.storeEntries(msg.req.prevLogIndex + 1, msg.req.entries);
 
         // 5. If leaderCommit > commitIndex, set
         // commitIndex = min(leaderCommit, index of last new entry)
-        if (msg.leaderCommit > state.commitIndex.get()) {
-            state.commitIndex.set(Math.min(msg.leaderCommit, state.log.lastLogIndex()));
+        if (msg.req.leaderCommit > state.commitIndex.get()) {
+            state.commitIndex.set(Math.min(msg.req.leaderCommit, state.log.lastLogIndex()));
             // All Servers:
             // If commitIndex > lastApplied: increment lastApplied, apply
             // log[lastApplied] to servers.state machine
@@ -100,9 +107,21 @@ public final class Follower extends Server {
             }
         }
 
-        var result = new AppendEntriesResult(ctx.getSelf(), msg.seqNum, state.currentTerm.get(), true);
-        msg.sender.tell(result);
+        var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), true);
+        msg.replyTo.tell(result);
 
         return Behaviors.same();
+    }
+
+    private static Behavior<Raft> crash(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                        Servers servers, FollowerState state, Crash msg) {
+        timers.cancel("election timeout");
+        return crash(ctx, servers, state, msg);
+    }
+
+    private static Behavior<Raft> stop(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                       Servers servers, FollowerState state) {
+        timers.cancel("election timeout");
+        return stop(ctx, servers, state);
     }
 }

@@ -3,21 +3,18 @@ package it.unitn.ds2.raft.rpc;
 import akka.actor.typed.ActorRef;
 import it.unitn.ds2.raft.Raft;
 
-public abstract class AbstractRPCMsg implements RPC {
+public abstract class AbstractRPCMsg implements Raft {
     public final ActorRef<Raft> sender;
     public final int seqNum;
-    public final int term;
 
     /**
-     * Base class for RPC messages of page 4.
+     * Base class for RPC messages.
      *
-     * @param sender for the receiver to reply to.
+     * @param sender for receiver to reply to.
      * @param seqNum for sender to check if reply was reordered.
-     * @param term   sender's term.
      */
-    public AbstractRPCMsg(ActorRef<Raft> sender, int seqNum, int term) {
+    public AbstractRPCMsg(ActorRef<Raft> sender, int seqNum) {
         this.sender = sender;
         this.seqNum = seqNum;
-        this.term = term;
     }
 }
