@@ -66,7 +66,7 @@ public final class Follower extends Server {
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             timers.cancel("election timeout");
-            return Follower.waitForAppendEntries(ctx.asJava(), servers, FollowerState.fromAnyState(state));
+            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
         startElectionTimer(ctx, timers);

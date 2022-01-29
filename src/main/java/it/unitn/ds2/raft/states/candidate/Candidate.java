@@ -113,7 +113,7 @@ public final class Candidate extends Server {
             state.currentTerm.set(msg.res.term);
             state.votedFor.set(null);
             timers.cancel("election timeout");
-            return Follower.waitForAppendEntries(ctx.asJava(), servers, FollowerState.fromAnyState(state));
+            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
         votes.addVote(msg.sender, msg.res.voteGranted);
@@ -139,7 +139,7 @@ public final class Candidate extends Server {
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             timers.cancel("election timeout");
-            return Follower.waitForAppendEntries(ctx.asJava(), servers, FollowerState.fromAnyState(state));
+            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
         if (msg.req.term < state.currentTerm.get()) {
