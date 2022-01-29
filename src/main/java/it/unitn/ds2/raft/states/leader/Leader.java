@@ -43,6 +43,7 @@ public final class Leader extends Server {
                     .onMessage(Crash.class, msg -> crash(ctx, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, servers, state))
                     .onMessage(Vote.class, msg -> Behaviors.ignore())
+                    .onAnyMessage(msg -> Behaviors.ignore())
                     .build();
         });
     }
