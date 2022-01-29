@@ -40,9 +40,9 @@ public final class Leader extends Server {
                     .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, seqNum, state, msg))
                     .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, servers, seqNum, state, msg))
                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, seqNum, state, msg))
+                    .onMessage(RequestVoteRPC.class, msg -> onVote(ctx, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, servers, state))
-                    .onMessage(Vote.class, msg -> Behaviors.ignore())
                     .onAnyMessage(msg -> Behaviors.ignore())
                     .build();
         });
