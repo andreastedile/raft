@@ -72,7 +72,7 @@ public final class Candidate extends Server {
 
     public static void sendRequestVote(ActorContext<Raft> ctx, SeqNum seqNum, ActorRef<Raft> recipient, CandidateState state) {
         var request = new VoteRequest(ctx.getSelf(), state.currentTerm.get(), ctx.getSelf(), state.log.lastLogIndex(), state.log.lastLogTerm());
-        ctx.getLog().debug("Requesting vote " + request + ", timeout ← " + properties.rpcTimeoutMs + "ms");
+        ctx.getLog().debug("Requesting vote " + request + " to " + recipient.path().name());
 
         ctx.ask(Vote.class, // resClass
                 recipient, // target

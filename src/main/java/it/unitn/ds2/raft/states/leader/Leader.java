@@ -55,7 +55,7 @@ public final class Leader extends Server {
             state.log.append(entry);
             servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, false));
         } else {
-            ctx.getLog().debug(stash.size() + " it.unitn.ds2.gui.commands still needs processing. Stashing the command");
+            ctx.getLog().debug(stash.size() + " commands still needs to be processed. Stashing the command");
             stash.stash(msg);
         }
         return Behaviors.same();

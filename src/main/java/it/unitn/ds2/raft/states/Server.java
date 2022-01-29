@@ -24,16 +24,16 @@ public class Server {
         if (msg.req.term < state.currentTerm.get()) {
             // 1. Reply false if term < currentTerm
             ctx.getLog().debug("Sender is lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm.get());
-            ctx.getLog().debug("Denying vote to " + msg.req.candidateId);
+            ctx.getLog().debug("Denying vote to " + msg.req.candidateId.path().name());
             var vote = new Vote(ctx.getSelf(), state.currentTerm.get(), false);
             msg.replyTo.tell(vote);
         } else if (state.votedFor.get() == null || state.votedFor.get().equals(msg.req.candidateId)) {
-            ctx.getLog().debug("Granting vote to " + msg.req.candidateId);
+            ctx.getLog().debug("Granting vote to " + msg.req.candidateId.path().name());
             state.votedFor.set(msg.sender);
             var vote = new Vote(ctx.getSelf(), state.currentTerm.get(), true);
             msg.replyTo.tell(vote);
         } else {
-            ctx.getLog().debug("Denying vote to " + msg.req.candidateId);
+            ctx.getLog().debug("Denying vote to " + msg.req.candidateId.path().name());
             var vote = new Vote(ctx.getSelf(), state.currentTerm.get(), false);
             msg.replyTo.tell(vote);
         }

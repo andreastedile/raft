@@ -36,7 +36,7 @@ public class Offline extends Server {
     }
 
     private static Behavior<Raft> onJoin(ActorContext<Raft> ctx, Servers servers, Join msg) {
-        ctx.getLog().info(msg.server + " joined the Raft cluster");
+        ctx.getLog().info(msg.server.path().name() + " joined the Raft cluster");
         servers.add(msg.server);
         return Behaviors.same();
     }
