@@ -39,7 +39,7 @@ public final class Leader extends Server {
                     .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, state, msg))
                     .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, servers, state, msg))
                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg))
-                    .onMessage(RequestVoteRPC.class, msg -> onVote(ctx, state, msg))
+                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, servers, state))
                     .onAnyMessage(msg -> Behaviors.ignore())

@@ -15,7 +15,7 @@ public class Server {
 
     protected final static SimulationProperties properties = SimulationProperties.getInstance();
 
-    protected static Behavior<Raft> onVote(ActorContext<Raft> ctx, State state, RequestVoteRPC msg) {
+    protected static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, State state, RequestVoteRPC msg) {
         ctx.getLog().debug("Received " + msg);
 
         // Receiver implementation:

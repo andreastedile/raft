@@ -36,9 +36,9 @@ public final class Follower extends Server {
             startElectionTimer(ctx, timers);
 
             return Behaviors.receive(Raft.class)
-                    .onMessage(AppendEntriesRPC.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
+                    .onMessage(AppendEntriesRPC.class, msg -> onAppendEntriesRPC(ctx, timers, servers, state, msg))
                     .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
-                    .onMessage(RequestVoteRPC.class, msg -> onVote(ctx, state, msg))
+                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
                     .onAnyMessage(msg -> Behaviors.ignore())
@@ -57,7 +57,7 @@ public final class Follower extends Server {
         return Candidate.beginElection(ctx, servers, CandidateState.fromState(state));
     }
 
-    private static Behavior<Raft> onAppendEntries(ActorContext<Raft> ctx, TimerScheduler<Raft> timers, Servers servers, FollowerState state, AppendEntriesRPC msg) {
+    private static Behavior<Raft> onAppendEntriesRPC(ActorContext<Raft> ctx, TimerScheduler<Raft> timers, Servers servers, FollowerState state, AppendEntriesRPC msg) {
         ctx.getLog().debug("Received " + msg);
 
         if (msg.req.term > state.currentTerm.get()) {
