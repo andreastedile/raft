@@ -6,6 +6,7 @@ import akka.actor.typed.eventstream.EventStream;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.StashBuffer;
+import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.LogEntry;
@@ -32,19 +33,21 @@ public final class Leader extends Server {
         state.nextIndex.setCtx(ctx);
         state.matchIndex.setCtx(ctx);
 
-        return Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
-            servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, true, properties.heartbeatMs));
+        return Behaviors.withStash(10, (StashBuffer<Raft> stash) ->
+                Behaviors.withTimers(timers -> {
+                    startPeriodicHeartbeat(timers);
 
-            return Behaviors.receive(Raft.class)
-                    .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, state, msg))
-                    .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, servers, state, msg))
-                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg))
-                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, servers, state, msg))
-                    .onMessage(Crash.class, msg -> crash(ctx, servers, state, msg))
-                    .onMessage(Stop.class, msg -> stop(ctx, servers, state))
-                    .onAnyMessage(msg -> Behaviors.ignore())
-                    .build();
-        });
+                    return Behaviors.receive(Raft.class)
+                            .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, state, msg))
+                            .onMessage(PeriodicHeartbeat.class, msg -> onPeriodicHeartbeat(ctx, servers, state))
+                            .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, timers, servers, state, msg))
+                            .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg))
+                            .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, timers, servers, state, msg))
+                            .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
+                            .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
+                            .onAnyMessage(msg -> Behaviors.ignore())
+                            .build();
+                }));
     }
 
     private static Behavior<Raft> onCommand(ActorContext<Raft> ctx, StashBuffer<Raft> stash, Servers servers, LeaderState state, Command msg) {
@@ -57,6 +60,19 @@ public final class Leader extends Server {
             ctx.getLog().debug(stash.size() + " commands still needs to be processed. Postponing the command");
             stash.stash(msg);
         }
+        return Behaviors.same();
+    }
+
+    private static void startPeriodicHeartbeat(TimerScheduler<Raft> timers) {
+        timers.startTimerAtFixedRate("periodic heartbeat", new PeriodicHeartbeat(), Duration.ofMillis(properties.heartbeatMs));
+    }
+
+    private static void stopPeriodicHeartbeat(TimerScheduler<Raft> timers) {
+        timers.cancel("periodic heartbeat");
+    }
+
+    private static Behavior<Raft> onPeriodicHeartbeat(ActorContext<Raft> ctx, Servers servers, LeaderState state) {
+        servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, true, properties.heartbeatMs));
         return Behaviors.same();
     }
 
@@ -87,7 +103,7 @@ public final class Leader extends Server {
         return Behaviors.same();
     }
 
-    private static Behavior<Raft> onAppendEntriesResult(ActorContext<Raft> ctx, StashBuffer<Raft> stash,
+    private static Behavior<Raft> onAppendEntriesResult(ActorContext<Raft> ctx, StashBuffer<Raft> stash, TimerScheduler<Raft> timers,
                                                         Servers servers,
                                                         LeaderState state,
                                                         AppendEntriesRPCResponse msg) {
@@ -95,6 +111,7 @@ public final class Leader extends Server {
 
         if (msg.res.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
+            stopPeriodicHeartbeat(timers);
             state.currentTerm.set(msg.res.term);
             state.votedFor.set(null);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
@@ -121,11 +138,10 @@ public final class Leader extends Server {
                             }
                         }
                     });
-
-            appendEntriesRPC(ctx, state, msg.sender, true, properties.rpcTimeoutMs);
         } else {
             state.nextIndex.decrement(msg.sender);
 
+            // Act quickly to repair the follower's log
             appendEntriesRPC(ctx, state, msg.sender, false, properties.rpcTimeoutMs);
         }
 
@@ -144,11 +160,13 @@ public final class Leader extends Server {
                 state.commitIndex.get()); // leaderCommit – leader’s commitIndex.
     }
 
-    private static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, Servers servers, LeaderState state, RequestVoteRPC msg) {
+    private static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                                   Servers servers, LeaderState state, RequestVoteRPC msg) {
         ctx.getLog().debug("Received " + msg);
 
         if (msg.req.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            stopPeriodicHeartbeat(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             ctx.getSelf().tell(msg);
@@ -156,5 +174,17 @@ public final class Leader extends Server {
         }
 
         return onRequestVoteRPC(ctx, state, msg);
+    }
+
+    private static Behavior<Raft> crash(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                        Servers servers, LeaderState state, Crash msg) {
+        stopPeriodicHeartbeat(timers);
+        return crash(ctx, servers, state, msg);
+    }
+
+    private static Behavior<Raft> stop(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                       Servers servers, LeaderState state) {
+        stopPeriodicHeartbeat(timers);
+        return stop(ctx, servers, state);
     }
 }
