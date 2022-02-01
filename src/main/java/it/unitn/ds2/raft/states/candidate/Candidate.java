@@ -137,6 +137,7 @@ public final class Candidate extends Server {
             cancelElectionTimer(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
+            ctx.getSelf().tell(msg);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
@@ -158,6 +159,7 @@ public final class Candidate extends Server {
             cancelElectionTimer(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
+            ctx.getSelf().tell(msg);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 

@@ -151,6 +151,7 @@ public final class Leader extends Server {
             ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
+            ctx.getSelf().tell(msg);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 

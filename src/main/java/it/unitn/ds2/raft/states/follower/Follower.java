@@ -65,7 +65,8 @@ public final class Follower extends Server {
             timers.cancel("election timeout");
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
-            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
+            ctx.getSelf().tell(msg);
+            return Behaviors.same();
         }
 
         startElectionTimer(ctx, timers);
@@ -122,7 +123,8 @@ public final class Follower extends Server {
             timers.cancel("election timeout");
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
-            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
+            ctx.getSelf().tell(msg);
+            return Behaviors.same();
         }
 
         return onRequestVoteRPC(ctx, state, msg);
