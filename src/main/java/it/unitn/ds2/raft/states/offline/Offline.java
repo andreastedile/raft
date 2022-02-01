@@ -29,6 +29,7 @@ public class Offline extends Server {
                     return Behaviors.receive(Raft.class)
                             .onMessage(Join.class, msg -> onJoin(ctx, servers, msg))
                             .onMessage(Start.class, msg -> start(ctx, servers))
+                            .onAnyMessage(msg -> Behaviors.same())
                             .build();
                 }
         );
@@ -61,6 +62,7 @@ public class Offline extends Server {
 
         return Behaviors.receive(Raft.class)
                 .onMessage(Start.class, unused -> Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state)))
+                .onAnyMessage(msg -> Behaviors.same())
                 .build();
     }
 }
