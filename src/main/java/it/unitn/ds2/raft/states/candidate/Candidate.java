@@ -28,14 +28,15 @@ public final class Candidate extends Server {
     }
 
     public static Behavior<Raft> beginElection(ActorContext<Raft> ctx, Servers servers, CandidateState state) {
-        Votes votes = new Votes(servers.getAll());
-        votes.setCtx(ctx);
-
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CANDIDATE);
         var publish = new EventStream.Publish<>(event);
         ctx.getSystem().eventStream().tell(publish);
 
         ctx.getLog().debug("Begin election");
+
+        Votes votes = new Votes(servers.getAll());
+        votes.setCtx(ctx);
+
         state.currentTerm.increment();
         state.votedFor.set(ctx.getSelf());
         votes.addVote(ctx.getSelf(), true);
@@ -70,7 +71,7 @@ public final class Candidate extends Server {
 
     public static void requestVoteRPC(ActorContext<Raft> ctx, ActorRef<Raft> recipient, CandidateState state, long timeoutMs) {
         var request = new VoteRequest(ctx.getSelf(), state.currentTerm.get(), ctx.getSelf(), state.log.lastLogIndex(), state.log.lastLogTerm());
-        ctx.getLog().debug("Requesting vote " + request + " to " + recipient.path().name());
+        ctx.getLog().debug("Requesting " + request + " to " + recipient.path().name());
 
         ctx.ask(Vote.class, // resClass
                 recipient, // target
@@ -100,8 +101,7 @@ public final class Candidate extends Server {
                                                            Servers servers, Votes votes,
                                                            CandidateState state, RequestVoteRPCResponse msg) {
         if (msg.res.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Received " + msg);
-            ctx.getLog().debug("Lagging (message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
             state.currentTerm.set(msg.res.term);
             state.votedFor.set(null);
             timers.cancel("election timeout");
@@ -129,8 +129,7 @@ public final class Candidate extends Server {
         ctx.getLog().debug("Received " + msg);
 
         if (msg.req.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Received " + msg);
-            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             timers.cancel("election timeout");
@@ -138,7 +137,7 @@ public final class Candidate extends Server {
         }
 
         if (msg.req.term < state.currentTerm.get()) {
-            ctx.getLog().debug("Sender is lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm.get() + ")");
+            ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm.get() + ": ignoring");
             return Behaviors.same();
         }
         // If AppendEntries RPC received from new leader: convert to follower
@@ -148,9 +147,10 @@ public final class Candidate extends Server {
 
     private static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
                                                    Servers servers, CandidateState state, RequestVoteRPC msg) {
+        ctx.getLog().debug("Received " + msg);
+
         if (msg.req.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Received " + msg);
-            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
             timers.cancel("election timeout");
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);

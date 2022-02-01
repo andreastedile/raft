@@ -27,7 +27,8 @@ public final class Follower extends Server {
     }
 
     public static Behavior<Raft> waitForAppendEntries(ActorContext<Raft> ctx, Servers servers, FollowerState state) {
-        // Inform everyone that I'm a follower again
+        ctx.getLog().debug("Waiting for append entries");
+
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.FOLLOWER);
         var publish = new EventStream.Publish<>(event);
         ctx.getSystem().eventStream().tell(publish);
@@ -49,7 +50,6 @@ public final class Follower extends Server {
     private static void startElectionTimer(ActorContext<Raft> ctx, TimerScheduler<Raft> timers) {
         long timeout = randomElectionTimeout();
         timers.startSingleTimer("election timeout", new ElectionTimeout(), Duration.ofMillis(timeout));
-        ctx.getLog().debug("Election timeout ← " + timeout + "ms");
     }
 
     private static Behavior<Raft> onElectionTimeout(ActorContext<Raft> ctx, Servers servers, FollowerState state) {
@@ -61,11 +61,10 @@ public final class Follower extends Server {
         ctx.getLog().debug("Received " + msg);
 
         if (msg.req.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Received " + msg);
-            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Leader's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            timers.cancel("election timeout");
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
-            timers.cancel("election timeout");
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
@@ -73,20 +72,20 @@ public final class Follower extends Server {
 
         // 1. Reply false if term < currentTerm
         if (msg.req.term < state.currentTerm.get()) {
-            ctx.getLog().debug("Sender is lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm.get() + ")");
+            ctx.getLog().debug("Leader's term is " + msg.req.term + ", currentTerm is " + state.currentTerm.get() + ": ignoring");
             var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
             msg.replyTo.tell(result);
             return Behaviors.same();
         }
-        // 2. Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm
+        // 2. Reply false if log doesn't contain an entry at prevLogIndex whose term matches prevLogTerm
         if (msg.req.prevLogIndex > 0 && state.log.lastLogIndex() == 0) {
-            ctx.getLog().debug("Lagging (message's prevLogIndex is " + msg.req.prevLogIndex + ", lastLogIndex is 0)");
+            ctx.getLog().debug("Leader's prevLogIndex is " + msg.req.prevLogIndex + ", lastLogIndex is 0: ignoring");
             var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
             msg.replyTo.tell(result);
             return Behaviors.same();
         }
         if (msg.req.prevLogIndex > 0 && state.log.get(msg.req.prevLogIndex).term != msg.req.prevLogTerm) {
-            ctx.getLog().debug("Lagging (message's prevLogTerm is " + msg.req.prevLogTerm + ", but log has " + state.log.get(msg.req.prevLogIndex).term);
+            ctx.getLog().debug("Leader's prevLogTerm is " + msg.req.prevLogTerm + ", but log has " + state.log.get(msg.req.prevLogIndex).term + ": ignoring");
             var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
             msg.replyTo.tell(result);
             return Behaviors.same();
@@ -116,9 +115,10 @@ public final class Follower extends Server {
 
     private static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
                                                    Servers servers, FollowerState state, RequestVoteRPC msg) {
+        ctx.getLog().debug("Received " + msg);
+
         if (msg.req.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Received " + msg);
-            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Leader's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
             timers.cancel("election timeout");
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);

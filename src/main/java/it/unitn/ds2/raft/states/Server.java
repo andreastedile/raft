@@ -16,8 +16,6 @@ public class Server {
     protected final static SimulationProperties properties = SimulationProperties.getInstance();
 
     protected static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, State state, RequestVoteRPC msg) {
-        ctx.getLog().debug("Received " + msg);
-
         // Receiver implementation:
         // 2. If votedFor is null or candidateId,
         // and candidate’s log is at least as up-to-date as receiver’s log, grant vote

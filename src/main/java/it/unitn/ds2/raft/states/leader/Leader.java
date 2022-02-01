@@ -25,12 +25,12 @@ import java.util.stream.IntStream;
 
 public final class Leader extends Server {
     public static Behavior<Raft> elected(ActorContext<Raft> ctx, Servers servers, LeaderState state) {
-        state.nextIndex.setCtx(ctx);
-        state.matchIndex.setCtx(ctx);
-
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.LEADER);
         var publish = new EventStream.Publish<>(event);
         ctx.getSystem().eventStream().tell(publish);
+
+        state.nextIndex.setCtx(ctx);
+        state.matchIndex.setCtx(ctx);
 
         return Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
             servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, true, properties.heartbeatMs));
@@ -54,7 +54,7 @@ public final class Leader extends Server {
             state.log.append(entry);
             servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, false, properties.rpcTimeoutMs));
         } else {
-            ctx.getLog().debug(stash.size() + " commands still needs to be processed. Stashing the command");
+            ctx.getLog().debug(stash.size() + " commands still needs to be processed. Postponing the command");
             stash.stash(msg);
         }
         return Behaviors.same();
@@ -64,9 +64,9 @@ public final class Leader extends Server {
                                          ActorRef<Raft> recipient, boolean isHeartbeat, long timeoutMs) {
         var appendEntries = createAppendEntries(ctx, state, recipient, isHeartbeat);
         if (isHeartbeat) {
-            ctx.getLog().debug("Sending heartbeat " + appendEntries + " to " + recipient.path().name());
+            ctx.getLog().debug("Sending " + appendEntries + " to " + recipient.path().name() + " (heartbeat)");
         } else {
-            ctx.getLog().debug("Sending appendEntries " + appendEntries + " to " + recipient.path().name());
+            ctx.getLog().debug("Sending " + appendEntries + " to " + recipient.path().name());
         }
         ctx.ask(AppendEntriesResult.class, // resClass
                 recipient, // target
@@ -91,9 +91,10 @@ public final class Leader extends Server {
                                                         Servers servers,
                                                         LeaderState state,
                                                         AppendEntriesRPCResponse msg) {
+        ctx.getLog().debug("Received " + msg);
+
         if (msg.res.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Received " + msg);
-            ctx.getLog().debug("Lagging (message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
             state.currentTerm.set(msg.res.term);
             state.votedFor.set(null);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
@@ -147,7 +148,7 @@ public final class Leader extends Server {
         ctx.getLog().debug("Received " + msg);
 
         if (msg.req.term > state.currentTerm.get()) {
-            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
