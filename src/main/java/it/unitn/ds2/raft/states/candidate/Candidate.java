@@ -69,6 +69,10 @@ public final class Candidate extends Server {
         ctx.getLog().debug("Election timeout ← " + timeout + "ms");
     }
 
+    private static void cancelElectionTimer(TimerScheduler<Raft> timers) {
+        timers.cancel("election timeout");
+    }
+
     public static void requestVoteRPC(ActorContext<Raft> ctx, ActorRef<Raft> recipient, CandidateState state, long timeoutMs) {
         var request = new VoteRequest(ctx.getSelf(), state.currentTerm.get(), ctx.getSelf(), state.log.lastLogIndex(), state.log.lastLogTerm());
         ctx.getLog().debug("Requesting " + request + " to " + recipient.path().name());
@@ -102,9 +106,9 @@ public final class Candidate extends Server {
                                                            CandidateState state, RequestVoteRPCResponse msg) {
         if (msg.res.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
+            cancelElectionTimer(timers);
             state.currentTerm.set(msg.res.term);
             state.votedFor.set(null);
-            timers.cancel("election timeout");
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
@@ -112,12 +116,12 @@ public final class Candidate extends Server {
 
         if (votes.nGranted() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election won! Collected " + servers.size() + " votes, " + (votes.nGranted() - 1) + " granted, " + votes.nDenied() + " denied");
-            timers.cancel("election timeout");
+            cancelElectionTimer(timers);
             return Leader.elected(ctx, servers, LeaderState.fromState(servers, state));
         }
         if (votes.nDenied() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election lost! Collected " + servers.size() + " votes, " + (votes.nGranted() - 1) + " granted, " + votes.nDenied() + " denied");
-            timers.cancel("election timeout");
+            cancelElectionTimer(timers);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
@@ -130,9 +134,9 @@ public final class Candidate extends Server {
 
         if (msg.req.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            cancelElectionTimer(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
-            timers.cancel("election timeout");
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
@@ -141,7 +145,7 @@ public final class Candidate extends Server {
             return Behaviors.same();
         }
         // If AppendEntries RPC received from new leader: convert to follower
-        timers.cancel("election timeout");
+        cancelElectionTimer(timers);
         return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
     }
 
@@ -151,24 +155,24 @@ public final class Candidate extends Server {
 
         if (msg.req.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
-            timers.cancel("election timeout");
+            cancelElectionTimer(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
-        return onRequestVoteRPC(ctx, state, msg);
+        return Server.onRequestVoteRPC(ctx, state, msg);
     }
 
     private static Behavior<Raft> crash(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
                                         Servers servers, CandidateState state, Crash msg) {
-        timers.cancel("election timeout");
+        cancelElectionTimer(timers);
         return crash(ctx, servers, state, msg);
     }
 
     private static Behavior<Raft> stop(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
                                        Servers servers, CandidateState state) {
-        timers.cancel("election timeout");
+        cancelElectionTimer(timers);
         return stop(ctx, servers, state);
     }
 }
