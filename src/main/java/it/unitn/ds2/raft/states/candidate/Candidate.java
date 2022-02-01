@@ -54,6 +54,7 @@ public final class Candidate extends Server {
                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg.server))
                     .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
                     .onMessage(AppendEntriesRPC.class, msg -> onAppendEntriesRPC(ctx, timers, servers, state, msg))
+                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
                     .onAnyMessage(msg -> Behaviors.ignore())
