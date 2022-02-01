@@ -39,7 +39,7 @@ public final class Leader extends Server {
                     .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, state, msg))
                     .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, servers, state, msg))
                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg))
-                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, state, msg))
+                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, servers, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, servers, state))
                     .onAnyMessage(msg -> Behaviors.ignore())
@@ -141,5 +141,18 @@ public final class Leader extends Server {
                 prevLogTerm,
                 isHeartbeat ? List.of() : state.log.getFrom(state.nextIndex.get(server)), // entries – log entries to store.
                 state.commitIndex.get()); // leaderCommit – leader’s commitIndex.
+    }
+
+    private static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, Servers servers, LeaderState state, RequestVoteRPC msg) {
+        ctx.getLog().debug("Received " + msg);
+
+        if (msg.req.term > state.currentTerm.get()) {
+            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            state.currentTerm.set(msg.req.term);
+            state.votedFor.set(null);
+            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
+        }
+
+        return onRequestVoteRPC(ctx, state, msg);
     }
 }

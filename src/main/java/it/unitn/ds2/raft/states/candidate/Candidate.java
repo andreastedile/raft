@@ -54,7 +54,7 @@ public final class Candidate extends Server {
                     .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg.server))
                     .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
                     .onMessage(AppendEntriesRPC.class, msg -> onAppendEntriesRPC(ctx, timers, servers, state, msg))
-                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, state, msg))
+                    .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, timers, servers, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
                     .onAnyMessage(msg -> Behaviors.ignore())
@@ -141,6 +141,20 @@ public final class Candidate extends Server {
         // If AppendEntries RPC received from new leader: convert to follower
         timers.cancel("election timeout");
         return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
+    }
+
+    private static Behavior<Raft> onRequestVoteRPC(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
+                                                   Servers servers, CandidateState state, RequestVoteRPC msg) {
+        if (msg.req.term > state.currentTerm.get()) {
+            ctx.getLog().debug("Received " + msg);
+            ctx.getLog().debug("Lagging (message's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
+            timers.cancel("election timeout");
+            state.currentTerm.set(msg.req.term);
+            state.votedFor.set(null);
+            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
+        }
+
+        return onRequestVoteRPC(ctx, state, msg);
     }
 
     private static Behavior<Raft> crash(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
