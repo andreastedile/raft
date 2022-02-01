@@ -58,7 +58,6 @@ public final class Candidate extends Server {
                     .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, timers, servers, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
-                    .onAnyMessage(msg -> Behaviors.ignore())
                     .build();
         });
     }
