@@ -52,6 +52,10 @@ public final class Follower extends Server {
         timers.startSingleTimer("election timeout", new ElectionTimeout(), Duration.ofMillis(timeout));
     }
 
+    private static void cancelElectionTimer(TimerScheduler<Raft> timers) {
+        timers.cancel("election timeout");
+    }
+
     private static Behavior<Raft> onElectionTimeout(ActorContext<Raft> ctx, Servers servers, FollowerState state) {
         ctx.getLog().debug("Election timeout!");
         return Candidate.beginElection(ctx, servers, CandidateState.fromState(state));
@@ -62,7 +66,7 @@ public final class Follower extends Server {
 
         if (msg.req.term > state.currentTerm.get()) {
             ctx.getLog().debug("Leader's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
-            timers.cancel("election timeout");
+            cancelElectionTimer(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             ctx.getSelf().tell(msg);
@@ -120,7 +124,7 @@ public final class Follower extends Server {
 
         if (msg.req.term > state.currentTerm.get()) {
             ctx.getLog().debug("Leader's term is " + msg.req.term + ", currentTerm is " + state.currentTerm);
-            timers.cancel("election timeout");
+            cancelElectionTimer(timers);
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             ctx.getSelf().tell(msg);
@@ -132,13 +136,13 @@ public final class Follower extends Server {
 
     private static Behavior<Raft> crash(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
                                         Servers servers, FollowerState state, Crash msg) {
-        timers.cancel("election timeout");
+        cancelElectionTimer(timers);
         return crash(ctx, servers, state, msg);
     }
 
     private static Behavior<Raft> stop(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
                                        Servers servers, FollowerState state) {
-        timers.cancel("election timeout");
+        cancelElectionTimer(timers);
         return stop(ctx, servers, state);
     }
 }
