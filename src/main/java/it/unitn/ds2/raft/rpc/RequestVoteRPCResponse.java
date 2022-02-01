@@ -8,10 +8,9 @@ public final class RequestVoteRPCResponse extends RPCResponse<VoteRequest, Vote>
      * Constructs a request vote RPC response.
      *
      * @param sender   for the receiver to reply to.
-     * @param seqNum   for sender to check if reply was reordered.
      * @param response vote to be processed.
      */
-    public RequestVoteRPCResponse(ActorRef<Raft> sender, int seqNum, VoteRequest request, Vote response) {
-        super(sender, seqNum, request, response);
+    public RequestVoteRPCResponse(ActorRef<Raft> sender, VoteRequest request, Vote response) {
+        super(sender, request, response);
     }
 }

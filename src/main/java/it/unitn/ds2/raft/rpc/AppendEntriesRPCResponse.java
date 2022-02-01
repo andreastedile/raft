@@ -8,10 +8,9 @@ public final class AppendEntriesRPCResponse extends RPCResponse<AppendEntries, A
      * Constructs an append entries RPC response.
      *
      * @param sender   for the receiver to reply to.
-     * @param seqNum   for sender to check if reply was reordered.
      * @param response append entries response to be processed.
      */
-    public AppendEntriesRPCResponse(ActorRef<Raft> sender, int seqNum, AppendEntries request, AppendEntriesResult response) {
-        super(sender, seqNum, request, response);
+    public AppendEntriesRPCResponse(ActorRef<Raft> sender, AppendEntries request, AppendEntriesResult response) {
+        super(sender, request, response);
     }
 }

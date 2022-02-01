@@ -5,16 +5,13 @@ import it.unitn.ds2.raft.Raft;
 
 public abstract class AbstractRPCMsg implements Raft {
     public final ActorRef<Raft> sender;
-    public final int seqNum;
 
     /**
      * Base class for RPC messages.
      *
      * @param sender for receiver to reply to.
-     * @param seqNum for sender to check if reply was reordered.
      */
-    public AbstractRPCMsg(ActorRef<Raft> sender, int seqNum) {
+    public AbstractRPCMsg(ActorRef<Raft> sender) {
         this.sender = sender;
-        this.seqNum = seqNum;
     }
 }

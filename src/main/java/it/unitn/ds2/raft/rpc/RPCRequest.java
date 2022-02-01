@@ -11,12 +11,11 @@ public abstract class RPCRequest<Req extends RaftRequest, Res extends RaftRespon
      * Constructs an RPC request.
      *
      * @param sender  of the message.
-     * @param seqNum  for sender to check if reply was reordered.
      * @param replyTo for receiver to reply to.
      * @param req     request to be processed.
      */
-    public RPCRequest(ActorRef<Raft> sender, int seqNum, ActorRef<Res> replyTo, Req req) {
-        super(sender, seqNum);
+    public RPCRequest(ActorRef<Raft> sender, ActorRef<Res> replyTo, Req req) {
+        super(sender);
         this.replyTo = replyTo;
         this.req = req;
     }
@@ -25,7 +24,6 @@ public abstract class RPCRequest<Req extends RaftRequest, Res extends RaftRespon
     public String toString() {
         return getClass().getSimpleName() +
                 "{sender=" + sender.path().name() +
-                ", seqNum=" + seqNum +
                 ", request=" + req +
                 "}";
     }

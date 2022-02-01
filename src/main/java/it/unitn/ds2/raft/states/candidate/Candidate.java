@@ -8,7 +8,6 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
-import it.unitn.ds2.raft.fields.SeqNum;
 import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.fields.Votes;
 import it.unitn.ds2.raft.rpc.*;
@@ -31,8 +30,6 @@ public final class Candidate extends Server {
     public static Behavior<Raft> beginElection(ActorContext<Raft> ctx, Servers servers, CandidateState state) {
         Votes votes = new Votes(servers.getAll());
         votes.setCtx(ctx);
-        SeqNum seqNum = new SeqNum(servers.getAll());
-        seqNum.setCtx(ctx);
 
         var event = new StateChange(ctx.getSelf(), ctx.getSystem().uptime(), StateChange.State.CANDIDATE);
         var publish = new EventStream.Publish<>(event);
@@ -45,16 +42,16 @@ public final class Candidate extends Server {
 
         if (votes.nGranted() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election won!");
-            return Leader.elected(ctx, servers, seqNum, LeaderState.fromState(servers, state));
+            return Leader.elected(ctx, servers, LeaderState.fromState(servers, state));
         }
 
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
-            servers.getAll().forEach(server -> sendRequestVote(ctx, seqNum, server, state, false));
+            servers.getAll().forEach(server -> sendRequestVote(ctx, server, state, false));
 
             return Behaviors.receive(Raft.class)
-                    .onMessage(RequestVoteRPCResponse.class, msg -> onVote(ctx, timers, servers, seqNum, votes, state, msg))
-                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, seqNum, state, msg.server))
+                    .onMessage(RequestVoteRPCResponse.class, msg -> onVote(ctx, timers, servers, votes, state, msg))
+                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg.server))
                     .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
                     .onMessage(AppendEntriesRPC.class, msg -> onAppendEntries(ctx, timers, servers, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
@@ -70,26 +67,26 @@ public final class Candidate extends Server {
         ctx.getLog().debug("Election timeout ← " + timeout + "ms");
     }
 
-    public static void sendRequestVote(ActorContext<Raft> ctx, SeqNum seqNum, ActorRef<Raft> recipient, CandidateState state, boolean isRetry) {
+    public static void sendRequestVote(ActorContext<Raft> ctx, ActorRef<Raft> recipient, CandidateState state, boolean isRetry) {
         var request = new VoteRequest(ctx.getSelf(), state.currentTerm.get(), ctx.getSelf(), state.log.lastLogIndex(), state.log.lastLogTerm());
         ctx.getLog().debug("Requesting vote " + request + " to " + recipient.path().name());
 
         ctx.ask(Vote.class, // resClass
                 recipient, // target
                 isRetry ? Duration.ofMillis(500) : Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
-                (ActorRef<Vote> replyTo) -> new RequestVoteRPC(ctx.getSelf(), seqNum.computeNext(recipient), replyTo, request), // createRequest
+                (ActorRef<Vote> replyTo) -> new RequestVoteRPC(ctx.getSelf(), replyTo, request), // createRequest
                 (response, throwable) -> { // applyToResponse
                     if (response != null) {
-                        return new RequestVoteRPCResponse(recipient, seqNum.expectedSeqNum(recipient), request, response);
+                        return new RequestVoteRPCResponse(recipient, request, response);
                     }
                     return new RPCTimeout(recipient);
                 }
         );
     }
 
-    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, SeqNum seqNum, CandidateState state, ActorRef<Raft> recipient) {
+    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, CandidateState state, ActorRef<Raft> recipient) {
         ctx.getLog().debug("RPC timeout waiting for " + recipient.path().name());
-        sendRequestVote(ctx, seqNum, recipient, state, true);
+        sendRequestVote(ctx, recipient, state, true);
         return Behaviors.same();
     }
 
@@ -99,14 +96,8 @@ public final class Candidate extends Server {
     }
 
     private static Behavior<Raft> onVote(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
-                                         Servers servers, SeqNum seqNum, Votes votes,
+                                         Servers servers, Votes votes,
                                          CandidateState state, RequestVoteRPCResponse msg) {
-        if (msg.seqNum < seqNum.expectedSeqNum(msg.sender)) {
-            ctx.getLog().debug("Discarded " + msg + " because sequence numbers don't match " +
-                    "(message's seqNum is " + msg.seqNum + ", expected " + seqNum.expectedSeqNum(msg.sender));
-            return Behaviors.same();
-        }
-
         if (msg.res.term > state.currentTerm.get()) {
             ctx.getLog().debug("Received " + msg);
             ctx.getLog().debug("Lagging (message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
@@ -120,7 +111,7 @@ public final class Candidate extends Server {
 
         if (votes.nGranted() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election won!");
-            return Leader.elected(ctx, servers, seqNum, LeaderState.fromState(servers, state));
+            return Leader.elected(ctx, servers, LeaderState.fromState(servers, state));
         } else if (votes.nDenied() == majority(servers.size() + 1)) {
             ctx.getLog().debug("Election lost");
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));

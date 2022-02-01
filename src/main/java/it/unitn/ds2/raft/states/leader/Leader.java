@@ -9,7 +9,6 @@ import akka.actor.typed.javadsl.StashBuffer;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.LogEntry;
-import it.unitn.ds2.raft.fields.SeqNum;
 import it.unitn.ds2.raft.fields.Servers;
 import it.unitn.ds2.raft.rpc.*;
 import it.unitn.ds2.raft.simulation.Command;
@@ -25,7 +24,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public final class Leader extends Server {
-    public static Behavior<Raft> elected(ActorContext<Raft> ctx, Servers servers, SeqNum seqNum, LeaderState state) {
+    public static Behavior<Raft> elected(ActorContext<Raft> ctx, Servers servers, LeaderState state) {
         state.nextIndex.setCtx(ctx);
         state.matchIndex.setCtx(ctx);
 
@@ -34,12 +33,12 @@ public final class Leader extends Server {
         ctx.getSystem().eventStream().tell(publish);
 
         return Behaviors.withStash(10, (StashBuffer<Raft> stash) -> {
-            servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, true, false));
+            servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, true, false));
 
             return Behaviors.receive(Raft.class)
-                    .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, seqNum, state, msg))
-                    .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, servers, seqNum, state, msg))
-                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, seqNum, state, msg))
+                    .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, state, msg))
+                    .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, servers, state, msg))
+                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg))
                     .onMessage(RequestVoteRPC.class, msg -> onVote(ctx, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, servers, state, msg))
                     .onMessage(Stop.class, msg -> stop(ctx, servers, state))
@@ -48,12 +47,12 @@ public final class Leader extends Server {
         });
     }
 
-    private static Behavior<Raft> onCommand(ActorContext<Raft> ctx, StashBuffer<Raft> stash, Servers servers, SeqNum seqNum, LeaderState state, Command msg) {
+    private static Behavior<Raft> onCommand(ActorContext<Raft> ctx, StashBuffer<Raft> stash, Servers servers, LeaderState state, Command msg) {
         ctx.getLog().debug("Received command " + msg);
         if (stash.isEmpty()) {
             var entry = new LogEntry(msg.command, state.currentTerm.get());
             state.log.append(entry);
-            servers.getAll().forEach(server -> appendEntriesRPC(ctx, seqNum, state, server, false, false));
+            servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, false, false));
         } else {
             ctx.getLog().debug(stash.size() + " commands still needs to be processed. Stashing the command");
             stash.stash(msg);
@@ -61,7 +60,7 @@ public final class Leader extends Server {
         return Behaviors.same();
     }
 
-    private static void appendEntriesRPC(ActorContext<Raft> ctx, SeqNum seqNum, LeaderState state,
+    private static void appendEntriesRPC(ActorContext<Raft> ctx, LeaderState state,
                                          ActorRef<Raft> recipient, boolean isHeartbeat, boolean isRetry) {
         var appendEntries = createAppendEntries(ctx, state, recipient, isHeartbeat);
         if (isHeartbeat) {
@@ -72,33 +71,26 @@ public final class Leader extends Server {
         ctx.ask(AppendEntriesResult.class, // resClass
                 recipient, // target
                 isRetry ? Duration.ofMillis(100) : Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
-                (ActorRef<AppendEntriesResult> replyTo) -> new AppendEntriesRPC(ctx.getSelf(), seqNum.computeNext(recipient), replyTo, appendEntries), // createRequest
+                (ActorRef<AppendEntriesResult> replyTo) -> new AppendEntriesRPC(ctx.getSelf(), replyTo, appendEntries), // createRequest
                 (response, throwable) -> { // applyToResponse
                     if (response != null) {
-                        return new AppendEntriesRPCResponse(recipient, seqNum.expectedSeqNum(recipient), appendEntries, response);
+                        return new AppendEntriesRPCResponse(recipient, appendEntries, response);
                     }
                     return new RPCTimeout(recipient);
                 }
         );
     }
 
-    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, SeqNum seqNum, LeaderState state, RPCTimeout msg) {
+    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, LeaderState state, RPCTimeout msg) {
         ctx.getLog().debug("RPC timeout waiting for " + msg.server.path().name());
-        appendEntriesRPC(ctx, seqNum, state, msg.server, false, true);
+        appendEntriesRPC(ctx, state, msg.server, false, true);
         return Behaviors.same();
     }
 
     private static Behavior<Raft> onAppendEntriesResult(ActorContext<Raft> ctx, StashBuffer<Raft> stash,
                                                         Servers servers,
-                                                        SeqNum seqNum,
                                                         LeaderState state,
                                                         AppendEntriesRPCResponse msg) {
-        if (msg.seqNum < seqNum.expectedSeqNum(msg.sender)) {
-            ctx.getLog().debug("Discarded " + msg + " because sequence numbers don't match " +
-                    "(message's seqNum is " + msg.seqNum + ", expected " + seqNum.expectedSeqNum(msg.sender));
-            return Behaviors.same();
-        }
-
         if (msg.res.term > state.currentTerm.get()) {
             ctx.getLog().debug("Received " + msg);
             ctx.getLog().debug("Lagging (message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
@@ -129,11 +121,11 @@ public final class Leader extends Server {
                         }
                     });
 
-            appendEntriesRPC(ctx, seqNum, state, msg.sender, true, false);
+            appendEntriesRPC(ctx, state, msg.sender, true, false);
         } else {
             state.nextIndex.decrement(msg.sender);
 
-            appendEntriesRPC(ctx, seqNum, state, msg.sender, false, false);
+            appendEntriesRPC(ctx, state, msg.sender, false, false);
         }
 
         return Behaviors.same();
