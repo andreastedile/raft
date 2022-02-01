@@ -47,7 +47,7 @@ public final class Candidate extends Server {
 
         return Behaviors.withTimers(timers -> {
             startElectionTimer(ctx, timers);
-            servers.getAll().forEach(server -> sendRequestVote(ctx, server, state, false));
+            servers.getAll().forEach(server -> sendRequestVote(ctx, server, state, properties.rpcTimeoutMs));
 
             return Behaviors.receive(Raft.class)
                     .onMessage(RequestVoteRPCResponse.class, msg -> onVote(ctx, timers, servers, votes, state, msg))
@@ -67,13 +67,13 @@ public final class Candidate extends Server {
         ctx.getLog().debug("Election timeout ← " + timeout + "ms");
     }
 
-    public static void sendRequestVote(ActorContext<Raft> ctx, ActorRef<Raft> recipient, CandidateState state, boolean isRetry) {
+    public static void sendRequestVote(ActorContext<Raft> ctx, ActorRef<Raft> recipient, CandidateState state, long timeoutMs) {
         var request = new VoteRequest(ctx.getSelf(), state.currentTerm.get(), ctx.getSelf(), state.log.lastLogIndex(), state.log.lastLogTerm());
         ctx.getLog().debug("Requesting vote " + request + " to " + recipient.path().name());
 
         ctx.ask(Vote.class, // resClass
                 recipient, // target
-                isRetry ? Duration.ofMillis(500) : Duration.ofMillis(properties.rpcTimeoutMs), // responseTimeout
+                Duration.ofMillis(timeoutMs), // responseTimeout
                 (ActorRef<Vote> replyTo) -> new RequestVoteRPC(ctx.getSelf(), replyTo, request), // createRequest
                 (response, throwable) -> { // applyToResponse
                     if (response != null) {
@@ -86,7 +86,7 @@ public final class Candidate extends Server {
 
     private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, CandidateState state, ActorRef<Raft> recipient) {
         ctx.getLog().debug("RPC timeout waiting for " + recipient.path().name());
-        sendRequestVote(ctx, recipient, state, true);
+        sendRequestVote(ctx, recipient, state, properties.rpcRetryMs);
         return Behaviors.same();
     }
 
