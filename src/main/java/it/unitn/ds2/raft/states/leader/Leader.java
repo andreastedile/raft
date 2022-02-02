@@ -11,6 +11,7 @@ import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.LogEntry;
 import it.unitn.ds2.raft.fields.Servers;
+import it.unitn.ds2.raft.fields.Suspicions;
 import it.unitn.ds2.raft.rpc.*;
 import it.unitn.ds2.raft.simulation.Command;
 import it.unitn.ds2.raft.simulation.Crash;
@@ -22,6 +23,7 @@ import it.unitn.ds2.raft.states.follower.FollowerState;
 import java.time.Duration;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 public final class Leader extends Server {
@@ -33,15 +35,18 @@ public final class Leader extends Server {
         state.nextIndex.setCtx(ctx);
         state.matchIndex.setCtx(ctx);
 
+        var suspicions = new Suspicions();
+        suspicions.setCtx(ctx);
+
         return Behaviors.withStash(10, (StashBuffer<Raft> stash) ->
                 Behaviors.withTimers(timers -> {
                     startPeriodicHeartbeat(timers);
 
                     return Behaviors.receive(Raft.class)
                             .onMessage(Command.class, msg -> onCommand(ctx, stash, servers, state, msg))
-                            .onMessage(PeriodicHeartbeat.class, msg -> onPeriodicHeartbeat(ctx, servers, state))
-                            .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, timers, servers, state, msg))
-                            .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg))
+                            .onMessage(PeriodicHeartbeat.class, msg -> onPeriodicHeartbeat(ctx, servers, suspicions, state))
+                            .onMessage(AppendEntriesRPCResponse.class, msg -> onAppendEntriesResult(ctx, stash, timers, servers, suspicions, state, msg))
+                            .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, suspicions, state, msg))
                             .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, timers, servers, state, msg))
                             .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
                             .onMessage(Stop.class, msg -> stop(ctx, timers, servers, state))
@@ -71,8 +76,10 @@ public final class Leader extends Server {
         timers.cancel("periodic heartbeat");
     }
 
-    private static Behavior<Raft> onPeriodicHeartbeat(ActorContext<Raft> ctx, Servers servers, LeaderState state) {
-        servers.getAll().forEach(server -> appendEntriesRPC(ctx, state, server, true, properties.heartbeatMs));
+    private static Behavior<Raft> onPeriodicHeartbeat(ActorContext<Raft> ctx, Servers servers, Suspicions suspicions, LeaderState state) {
+        servers.getAll().stream()
+                .filter(Predicate.not(suspicions::isSuspected))
+                .forEach(server -> appendEntriesRPC(ctx, state, server, true, properties.heartbeatMs));
         return Behaviors.same();
     }
 
@@ -97,17 +104,21 @@ public final class Leader extends Server {
         );
     }
 
-    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, LeaderState state, RPCTimeout msg) {
+    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, Suspicions suspicions, LeaderState state, RPCTimeout msg) {
         ctx.getLog().debug("RPC timeout waiting for " + msg.server.path().name());
+        suspicions.suspect(msg.server);
         appendEntriesRPC(ctx, state, msg.server, false, properties.rpcRetryMs);
         return Behaviors.same();
     }
 
     private static Behavior<Raft> onAppendEntriesResult(ActorContext<Raft> ctx, StashBuffer<Raft> stash, TimerScheduler<Raft> timers,
                                                         Servers servers,
+                                                        Suspicions suspicions,
                                                         LeaderState state,
                                                         AppendEntriesRPCResponse msg) {
         ctx.getLog().debug("Received " + msg);
+
+        suspicions.unsuspect(msg.sender);
 
         if (msg.res.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);

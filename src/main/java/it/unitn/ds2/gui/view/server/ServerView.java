@@ -6,12 +6,14 @@ import it.unitn.ds2.gui.model.ServerModel;
 import it.unitn.ds2.gui.view.AbstractTableView;
 import it.unitn.ds2.gui.view.ActorRefTableCell;
 import it.unitn.ds2.raft.Raft;
-import it.unitn.ds2.raft.events.Spawn;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.events.currentterm.CurrentTermIncrement;
 import it.unitn.ds2.raft.events.currentterm.CurrentTermSet;
+import it.unitn.ds2.raft.events.suspicions.Suspected;
+import it.unitn.ds2.raft.events.suspicions.Unsuspected;
 import it.unitn.ds2.raft.events.votedfor.VotedForSet;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.collections.ObservableList;
 import javafx.scene.control.TableColumn;
 
 public class ServerView extends AbstractTableView<ServerModel> {
@@ -37,10 +39,17 @@ public class ServerView extends AbstractTableView<ServerModel> {
         changeState.setCellValueFactory(param -> new ReadOnlyObjectWrapper<>(param.getValue()));
         getColumns().add(changeState);
 
+        TableColumn<ServerModel, ObservableList<ActorRef<Raft>>> suspicions = new TableColumn<>("Suspicions");
+        suspicions.setCellValueFactory(param -> param.getValue().suspicionsProperty());
+        suspicions.setCellFactory(param -> new SuspicionsTableCell());
+        getColumns().add(suspicions);
+
         applicationContext.eventBus.listenFor(StateChange.class, this::onStateChange);
         applicationContext.eventBus.listenFor(CurrentTermIncrement.class, this::onCurrentTermIncrement);
         applicationContext.eventBus.listenFor(CurrentTermSet.class, this::onCurrentTermSet);
         applicationContext.eventBus.listenFor(VotedForSet.class, this::onVotedForSet);
+        applicationContext.eventBus.listenFor(Suspected.class, this::onSuspected);
+        applicationContext.eventBus.listenFor(Unsuspected.class, this::onUnsuspected);
     }
 
     @Override
@@ -62,5 +71,13 @@ public class ServerView extends AbstractTableView<ServerModel> {
 
     private void onVotedForSet(VotedForSet event) {
         getModel(event.publisher).setVotedFor(event.votedFor);
+    }
+
+    private void onSuspected(Suspected event) {
+        getModel(event.publisher).addSuspected(event.suspected);
+    }
+
+    private void onUnsuspected(Unsuspected event) {
+        getModel(event.publisher).removeSuspected(event.unsuspected);
     }
 }

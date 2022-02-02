@@ -9,6 +9,7 @@ import akka.actor.typed.javadsl.TimerScheduler;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.fields.Servers;
+import it.unitn.ds2.raft.fields.Suspicions;
 import it.unitn.ds2.raft.fields.Votes;
 import it.unitn.ds2.raft.rpc.*;
 import it.unitn.ds2.raft.simulation.Crash;
@@ -34,6 +35,9 @@ public final class Candidate extends Server {
 
         ctx.getLog().debug("Begin election");
 
+        var suspicions = new Suspicions();
+        suspicions.setCtx(ctx);
+
         Votes votes = new Votes(servers.getAll());
         votes.setCtx(ctx);
 
@@ -51,9 +55,9 @@ public final class Candidate extends Server {
             servers.getAll().forEach(server -> requestVoteRPC(ctx, server, state, properties.rpcTimeoutMs));
 
             return Behaviors.receive(Raft.class)
-                    .onMessage(RequestVoteRPCResponse.class, msg -> onRequestVoteRPCResponse(ctx, timers, servers, votes, state, msg))
-                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, state, msg.server))
-                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, state))
+                    .onMessage(RequestVoteRPCResponse.class, msg -> onRequestVoteRPCResponse(ctx, timers, servers, suspicions, votes, state, msg))
+                    .onMessage(RPCTimeout.class, msg -> onRPCTimeout(ctx, suspicions, state, msg.server))
+                    .onMessage(ElectionTimeout.class, msg -> onElectionTimeout(ctx, servers, suspicions, state))
                     .onMessage(AppendEntriesRPC.class, msg -> onAppendEntriesRPC(ctx, timers, servers, state, msg))
                     .onMessage(RequestVoteRPC.class, msg -> onRequestVoteRPC(ctx, timers, servers, state, msg))
                     .onMessage(Crash.class, msg -> crash(ctx, timers, servers, state, msg))
@@ -90,20 +94,24 @@ public final class Candidate extends Server {
         );
     }
 
-    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, CandidateState state, ActorRef<Raft> recipient) {
+    private static Behavior<Raft> onRPCTimeout(ActorContext<Raft> ctx, Suspicions suspicions, CandidateState state, ActorRef<Raft> recipient) {
         ctx.getLog().debug("RPC timeout waiting for " + recipient.path().name());
+        suspicions.suspect(recipient);
         requestVoteRPC(ctx, recipient, state, properties.rpcRetryMs);
         return Behaviors.same();
     }
 
-    private static Behavior<Raft> onElectionTimeout(ActorContext<Raft> ctx, Servers servers, CandidateState state) {
+    private static Behavior<Raft> onElectionTimeout(ActorContext<Raft> ctx, Servers servers, Suspicions suspicions, CandidateState state) {
         ctx.getLog().debug("Election timeout!");
+        servers.getAll().forEach(suspicions::unsuspect);
         return beginElection(ctx, servers, state);
     }
 
     private static Behavior<Raft> onRequestVoteRPCResponse(ActorContext<Raft> ctx, TimerScheduler<Raft> timers,
-                                                           Servers servers, Votes votes,
+                                                           Servers servers, Suspicions suspicions, Votes votes,
                                                            CandidateState state, RequestVoteRPCResponse msg) {
+        suspicions.unsuspect(msg.sender);
+
         if (msg.res.term > state.currentTerm.get()) {
             ctx.getLog().debug("Message's term is " + msg.res.term + ", currentTerm is " + state.currentTerm);
             cancelElectionTimer(timers);
