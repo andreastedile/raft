@@ -4,23 +4,24 @@ import akka.actor.typed.ActorRef;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.StateChange;
 import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleListProperty;
 import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleSetProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import javafx.collections.ObservableSet;
 
 public class ServerModel extends AbstractModel {
     private final SimpleObjectProperty<StateChange.State> state;
     private final SimpleIntegerProperty currentTerm;
     private final SimpleObjectProperty<ActorRef<Raft>> votedFor;
-    private final ObservableList<ActorRef<Raft>> suspicions;
+    private final ObservableSet<ActorRef<Raft>> suspicions;
 
     public ServerModel(ActorRef<Raft> server) {
         super(server);
         state = new SimpleObjectProperty<>();
         currentTerm = new SimpleIntegerProperty();
         votedFor = new SimpleObjectProperty<>();
-        suspicions = FXCollections.observableArrayList();
+        //noinspection unchecked
+        suspicions = FXCollections.observableSet();
     }
 
     public void setState(StateChange.State state) {
@@ -47,8 +48,8 @@ public class ServerModel extends AbstractModel {
         return votedFor;
     }
 
-    public SimpleListProperty<ActorRef<Raft>> suspicionsProperty() {
-        return new SimpleListProperty<>(suspicions);
+    public SimpleSetProperty<ActorRef<Raft>> suspicionsProperty() {
+        return new SimpleSetProperty<>(suspicions);
     }
 
     public void addSuspected(ActorRef<Raft> server) {

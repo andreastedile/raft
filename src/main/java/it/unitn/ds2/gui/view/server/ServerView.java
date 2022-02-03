@@ -13,7 +13,7 @@ import it.unitn.ds2.raft.events.suspicions.Suspected;
 import it.unitn.ds2.raft.events.suspicions.Unsuspected;
 import it.unitn.ds2.raft.events.votedfor.VotedForSet;
 import javafx.beans.property.ReadOnlyObjectWrapper;
-import javafx.collections.ObservableList;
+import javafx.collections.ObservableSet;
 import javafx.scene.control.TableColumn;
 
 public class ServerView extends AbstractTableView<ServerModel> {
@@ -39,7 +39,7 @@ public class ServerView extends AbstractTableView<ServerModel> {
         changeState.setCellValueFactory(param -> new ReadOnlyObjectWrapper<>(param.getValue()));
         getColumns().add(changeState);
 
-        TableColumn<ServerModel, ObservableList<ActorRef<Raft>>> suspicions = new TableColumn<>("Suspicions");
+        TableColumn<ServerModel, ObservableSet<ActorRef<Raft>>> suspicions = new TableColumn<>("Suspicions");
         suspicions.setCellValueFactory(param -> param.getValue().suspicionsProperty());
         suspicions.setCellFactory(param -> new SuspicionsTableCell());
         getColumns().add(suspicions);
