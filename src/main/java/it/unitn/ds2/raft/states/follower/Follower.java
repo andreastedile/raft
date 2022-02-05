@@ -89,6 +89,14 @@ public final class Follower extends Server {
             msg.replyTo.tell(result);
             return Behaviors.same();
         }
+
+        if (msg.req.prevLogIndex > 0 && state.log.lastLogIndex() <= msg.req.prevLogIndex) {
+            ctx.getLog().debug("Leader's prevLogIndex is " + msg.req.prevLogIndex + ", lastLogIndex is " + state.log.lastLogIndex() + ": too high, refusing");
+            var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
+            msg.replyTo.tell(result);
+            return Behaviors.same();
+        }
+
         if (msg.req.prevLogIndex > 0 && state.log.get(msg.req.prevLogIndex).term != msg.req.prevLogTerm) {
             ctx.getLog().debug("Leader's prevLogTerm is " + msg.req.prevLogTerm + ", but log has " + state.log.get(msg.req.prevLogIndex).term + ": ignoring");
             var result = new AppendEntriesResult(ctx.getSelf(), state.currentTerm.get(), false);
