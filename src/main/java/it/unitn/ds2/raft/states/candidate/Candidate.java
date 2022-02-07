@@ -123,12 +123,13 @@ public final class Candidate extends Server {
         votes.addVote(msg.sender, msg.res.voteGranted);
 
         if (votes.nGranted() == majority(servers.size() + 1)) {
-            ctx.getLog().debug("Election won! Collected " + servers.size() + " votes, " + (votes.nGranted() - 1) + " granted, " + votes.nDenied() + " denied");
+            // votes.nGranted() includes the candidate's own vote, so subtract 1
+            ctx.getLog().debug("Election won! Collected " + (votes.nGranted() - 1) + " votes, " + (votes.nGranted() - 1) + " granted, " + votes.nDenied() + " denied");
             cancelElectionTimer(timers);
             return Leader.elected(ctx, servers, LeaderState.fromState(servers, state));
         }
         if (votes.nDenied() == majority(servers.size() + 1)) {
-            ctx.getLog().debug("Election lost! Collected " + servers.size() + " votes, " + (votes.nGranted() - 1) + " granted, " + votes.nDenied() + " denied");
+            ctx.getLog().debug("Election lost! Collected " + (votes.nDenied()) + " votes, " + (votes.nGranted() - 1) + " granted, " + votes.nDenied() + " denied");
             cancelElectionTimer(timers);
             return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
