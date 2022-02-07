@@ -6,6 +6,7 @@ import it.unitn.ds2.gui.model.LocalLogModel;
 import it.unitn.ds2.gui.view.AbstractTableView;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.Spawn;
+import it.unitn.ds2.raft.events.StateChange;
 import it.unitn.ds2.raft.events.commitindex.CommitIndexDecrement;
 import it.unitn.ds2.raft.events.commitindex.CommitIndexIncrement;
 import it.unitn.ds2.raft.events.commitindex.CommitIndexSet;
@@ -42,6 +43,7 @@ public class LocalLogView extends AbstractTableView<LocalLogModel> {
         applicationContext.eventBus.listenFor(CommitIndexSet.class, this::onCommitIndexSet);
         applicationContext.eventBus.listenFor(LastAppliedIncrement.class, this::onLastAppliedIncrement);
         applicationContext.eventBus.listenFor(LastAppliedSet.class, this::onLastAppliedSet);
+        applicationContext.eventBus.listenFor(StateChange.class, this::onStateChange);
     }
 
     @Override
@@ -79,5 +81,13 @@ public class LocalLogView extends AbstractTableView<LocalLogModel> {
 
     private void onLastAppliedSet(LastAppliedSet event) {
         getModel(event.publisher).lastAppliedProperty().set(event.lastApplied);
+    }
+
+    private void onStateChange(StateChange event) {
+        if (event.state == StateChange.State.OFFLINE) {
+            var model = getModel(event.publisher);
+            model.commitIndexProperty().set(0);
+            model.lastAppliedProperty().set(0);
+        }
     }
 }
