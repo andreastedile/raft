@@ -140,7 +140,7 @@ public final class Leader extends Server {
             // set commitIndex = N
             IntStream.rangeClosed(state.commitIndex.get() + 1, state.log.lastLogIndex())
                     .forEach(N -> {
-                        long count = state.nextIndex.values().stream().filter(index -> index >= N).count() + 1;
+                        long count = state.matchIndex.values().stream().filter(index -> index >= N).count() + 1;
                         if (count >= majority(servers.size())) {
                             if (state.log.get(N).term == state.currentTerm.get()) {
                                 state.commitIndex.increment(); // todo: ?

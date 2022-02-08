@@ -6,6 +6,7 @@ import akka.actor.typed.javadsl.ActorContext;
 import it.unitn.ds2.raft.Raft;
 import it.unitn.ds2.raft.events.matchindex.MatchIndexIncrement;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,10 @@ public class MatchIndex implements ContextAware {
             var publish = new EventStream.Publish<>(event);
             ctx.getSystem().eventStream().tell(publish);
         }
+    }
+
+    public Collection<Integer> values() {
+        return matchIndex.values();
     }
 
     @Override
