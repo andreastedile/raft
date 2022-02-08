@@ -136,7 +136,7 @@ public final class Follower extends Server {
             state.currentTerm.set(msg.req.term);
             state.votedFor.set(null);
             ctx.getSelf().tell(msg);
-            return Behaviors.same();
+            return Follower.waitForAppendEntries(ctx, servers, FollowerState.fromAnyState(state));
         }
 
         return onRequestVoteRPC(ctx, state, msg);
