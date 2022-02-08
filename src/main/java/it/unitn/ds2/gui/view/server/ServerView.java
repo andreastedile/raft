@@ -58,7 +58,11 @@ public class ServerView extends AbstractTableView<ServerModel> {
     }
 
     private void onStateChange(StateChange event) {
-        getModel(event.publisher).setState(event.state);
+        var model = getModel(event.publisher);
+        model.setState(event.state);
+        if (event.state == StateChange.State.OFFLINE) {
+            model.clearSuspicionList();
+        }
     }
 
     private void onCurrentTermIncrement(CurrentTermIncrement event) {

@@ -59,4 +59,8 @@ public class ServerModel extends AbstractModel {
     public void removeSuspected(ActorRef<Raft> server) {
         suspicions.remove(server);
     }
+
+    public void clearSuspicionList() {
+        suspicions.clear();
+    }
 }
