@@ -29,6 +29,16 @@ public class MatchIndex implements ContextAware {
         return matchIndex.get(server);
     }
 
+    public void update(ActorRef<Raft> server, int index) {
+        matchIndex.put(server, index);
+        if (ctx != null) {
+            ctx.getLog().debug("matchIndex[" + server.path().name() + "] ← " + matchIndex.get(server));
+            var event = new MatchIndexIncrement(ctx.getSelf(), ctx.getSystem().uptime(), server, matchIndex.get(server));
+            var publish = new EventStream.Publish<>(event);
+            ctx.getSystem().eventStream().tell(publish);
+        }
+    }
+
     public void increment(ActorRef<Raft> server) {
         matchIndex.put(server, matchIndex.get(server) + 1);
         if (ctx != null) {

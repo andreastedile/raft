@@ -132,7 +132,7 @@ public final class Leader extends Server {
             if (!msg.req.isHeartbeat()) {
                 // If successful: update nextIndex and matchIndex for follower
                 state.nextIndex.increment(msg.sender);
-                state.matchIndex.increment(msg.sender);
+                state.matchIndex.update(msg.sender, state.nextIndex.get(msg.sender) - 1);
             }
 
             // If there exists an N such that N > commitIndex,
